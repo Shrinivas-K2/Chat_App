@@ -7,11 +7,13 @@ const {
   editMessage,
   deleteMessage,
   markMessageSeen,
+  clearMessagesByRoom,
 } = require("../../controllers/message/messageController");
 
 const messageRoutes = express.Router();
 
 messageRoutes.get("/room/:roomId", authMiddleware, asyncHandler(listMessagesByRoom));
+messageRoutes.patch("/room/:roomId/clear", authMiddleware, asyncHandler(clearMessagesByRoom));
 messageRoutes.post("/", authMiddleware, asyncHandler(sendMessage));
 messageRoutes.patch("/:messageId", authMiddleware, asyncHandler(editMessage));
 messageRoutes.delete("/:messageId", authMiddleware, asyncHandler(deleteMessage));

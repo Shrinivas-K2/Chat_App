@@ -48,6 +48,30 @@ async function searchUsers(req, res) {
   return res.json({ users });
 }
 
+async function listConnectedUsers(req, res) {
+  const result = await query(
+    `
+    SELECT user_id, username, email, profile_picture, is_online, date_of_birth
+    FROM users
+    WHERE user_id <> $1
+    ORDER BY is_online DESC, username ASC
+    `,
+    [req.user.user_id]
+  );
+
+  const users = result.rows.map((row) => ({
+    id: row.user_id,
+    name: row.username,
+      email: row.email,
+      avatar: (row.username || "U").slice(0, 2).toUpperCase(),
+      profilePicture: row.profile_picture,
+      isOnline: Boolean(row.is_online),
+      dateOfBirth: row.date_of_birth,
+    }));
+
+  return res.json({ users });
+}
+
 async function setGender(req, res) {
   const gender = String(req.body.gender || "").toUpperCase();
   const dateOfBirth = req.body.dateOfBirth || null;
@@ -94,4 +118,4 @@ async function setGender(req, res) {
   return res.json({ user: mapUser(result.rows[0]) });
 }
 
-module.exports = { searchUsers, setGender };
+module.exports = { searchUsers, listConnectedUsers, setGender };

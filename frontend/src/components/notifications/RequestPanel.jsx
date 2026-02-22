@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   getPrivateRequestsApi,
   respondPrivateRequestApi,
@@ -12,7 +12,9 @@ export function RequestPanel() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const panelRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const upsertChat = useChatStore((state) => state.upsertChat);
   const setActiveChat = useChatStore((state) => state.setActiveChat);
@@ -43,6 +45,34 @@ export function RequestPanel() {
     };
   }, [open]);
 
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const onPointerDown = (event) => {
+      if (!panelRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   const handleAction = async (roomId, action) => {
     try {
       const data = await respondPrivateRequestApi(roomId, action);
@@ -53,14 +83,22 @@ export function RequestPanel() {
         setActiveChat(data.room.id);
         navigate("/chat");
       }
+
+      if (action === "REJECT" || requests.length <= 1) {
+        setOpen(false);
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to update request."));
     }
   };
 
   return (
-    <div className="notification-wrap">
-      <button className="mini-btn" onClick={() => setOpen((prev) => !prev)}>
+    <div className="notification-wrap" ref={panelRef}>
+      <button
+        className={`mini-btn ${open ? "is-open" : ""}`.trim()}
+        onClick={() => setOpen((prev) => !prev)}
+        type="button"
+      >
         Requests ({requests.length})
       </button>
 

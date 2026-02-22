@@ -14,7 +14,20 @@ function statusLabel(status) {
   return "";
 }
 
-export function MessageList({ currentUserId, messages, typingUsers, onEditMessage, onDeleteMessage }) {
+function messageTypeLabel(type) {
+  const upper = String(type || "text").toUpperCase();
+  if (upper === "TEXT") return "";
+  return upper;
+}
+
+export function MessageList({
+  currentUserId,
+  messages,
+  typingUsers,
+  onEditMessage,
+  onDeleteMessage,
+  isGroup = false,
+}) {
   const [editingId, setEditingId] = useState(null);
   const [editingValue, setEditingValue] = useState("");
 
@@ -31,6 +44,10 @@ export function MessageList({ currentUserId, messages, typingUsers, onEditMessag
           return (
             <div key={message.id} className={`message-row ${own ? "own" : ""}`.trim()}>
               <div className="message-bubble">
+                {isGroup ? (
+                  <small className="message-sender">{own ? "You" : message.senderName || "User"}</small>
+                ) : null}
+
                 {editingId === message.id ? (
                   <div className="edit-inline">
                     <input
@@ -51,6 +68,10 @@ export function MessageList({ currentUserId, messages, typingUsers, onEditMessag
                 ) : (
                   <p>{message.text}</p>
                 )}
+
+                {messageTypeLabel(message.messageType) ? (
+                  <div className="message-type-tag">{messageTypeLabel(message.messageType)}</div>
+                ) : null}
 
                 <div className="message-meta">
                   <small>{formatTime(message.timestamp)}</small>

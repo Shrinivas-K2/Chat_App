@@ -24,3 +24,8 @@ export async function markMessageSeenApi(messageId) {
   const response = await httpClient.patch(`/messages/${messageId}/seen`);
   return response.data;
 }
+
+export async function clearChatRoomApi(roomId) {
+  const response = await httpClient.patch(`/messages/room/${roomId}/clear`);
+  return response.data;
+}

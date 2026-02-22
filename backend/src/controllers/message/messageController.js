@@ -1,6 +1,20 @@
 const { pool, query } = require("../../config/db");
 const { getIO } = require("../../services/socket/socketState");
 
+let roomMemberColumnsReady = false;
+
+async function ensureRoomMemberColumns() {
+  if (roomMemberColumnsReady) return;
+  await query(
+    `
+    ALTER TABLE room_members
+    ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMP
+    `
+  );
+  roomMemberColumnsReady = true;
+}
+
 function mapMessage(row) {
   return {
     id: row.message_id,
@@ -51,6 +65,7 @@ async function assertMembership(roomId, userId) {
 
 async function listMessagesByRoom(req, res) {
   const { roomId } = req.params;
+  await ensureRoomMemberColumns();
 
   const isMember = await assertMembership(roomId, req.user.user_id);
   if (!isMember) {
@@ -75,7 +90,12 @@ async function listMessagesByRoom(req, res) {
     LEFT JOIN message_status ms
       ON ms.message_id = m.message_id
      AND ms.user_id = $1
+    JOIN room_members rm
+      ON rm.room_id = m.room_id
+     AND rm.user_id = $1
+     AND rm.status = 'APPROVED'
     WHERE m.room_id = $2
+      AND m.created_at > COALESCE(rm.cleared_at, to_timestamp(0))
     ORDER BY m.created_at ASC
     LIMIT 500
     `,
@@ -162,6 +182,9 @@ async function sendMessage(req, res) {
       for (const member of memberResult.rows) {
         if (member.user_id === req.user.user_id) continue;
         io.to(`user:${member.user_id}`).emit("notification:new", {
+          type: "message",
+          senderId: req.user.user_id,
+          senderName: req.user.username,
           title: `New message from ${req.user.username}`,
           body: text.trim().slice(0, 80),
           roomId,
@@ -303,10 +326,47 @@ async function markMessageSeen(req, res) {
   return res.json({ success: true });
 }
 
+async function clearMessagesByRoom(req, res) {
+  const { roomId } = req.params;
+  const userId = req.user.user_id;
+  await ensureRoomMemberColumns();
+
+  const isMember = await assertMembership(roomId, userId);
+  if (!isMember) {
+    return res.status(403).json({ message: "Access denied" });
+  }
+
+  await query(
+    `
+    UPDATE room_members
+    SET cleared_at = NOW()
+    WHERE room_id = $1
+      AND user_id = $2
+      AND status = 'APPROVED'
+    `,
+    [roomId, userId]
+  );
+
+  const io = getIO();
+  if (io) {
+    io.to(`user:${userId}`).emit("chat:cleared", {
+      chatId: roomId,
+      clearedBy: userId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  return res.json({
+    success: true,
+    chatId: roomId,
+  });
+}
+
 module.exports = {
   listMessagesByRoom,
   sendMessage,
   editMessage,
   deleteMessage,
   markMessageSeen,
+  clearMessagesByRoom,
 };

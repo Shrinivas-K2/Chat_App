@@ -1,9 +1,24 @@
 const { pool, query } = require("../../config/db");
 const { getIO } = require("../../services/socket/socketState");
 
+let roomMemberColumnsReady = false;
+
+async function ensureRoomMemberColumns() {
+  if (roomMemberColumnsReady) return;
+  await query(
+    `
+    ALTER TABLE room_members
+    ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMP
+    `
+  );
+  roomMemberColumnsReady = true;
+}
+
 function toChatSummary(row, currentUserId) {
   const members = row.members || [];
   const isGroup = row.room_type === "PUBLIC";
+  let directUserId = null;
 
   let title = row.room_name || "Group";
   let avatar = "GR";
@@ -14,6 +29,7 @@ function toChatSummary(row, currentUserId) {
     title = other?.username || "Direct Chat";
     avatar = (title || "D").slice(0, 2).toUpperCase();
     online = Boolean(other?.is_online);
+    directUserId = other?.user_id || null;
   } else {
     avatar =
       (title || "GR")
@@ -31,7 +47,18 @@ function toChatSummary(row, currentUserId) {
     online,
     lastMessageAt: row.last_message_at || row.created_at,
     membersCount: members.length,
+    directUserId,
   };
+}
+
+function toGroupAvatar(title) {
+  return (
+    (title || "GR")
+      .split(" ")
+      .slice(0, 2)
+      .map((word) => word[0]?.toUpperCase() || "")
+      .join("") || "GR"
+  );
 }
 
 function notifyUser(userId, payload) {
@@ -41,6 +68,7 @@ function notifyUser(userId, payload) {
 }
 
 async function getRoomSummaryForUser(roomId, userId, runner = query) {
+  await ensureRoomMemberColumns();
   const result = await runner(
     `
     SELECT
@@ -71,7 +99,10 @@ async function getRoomSummaryForUser(roomId, userId, runner = query) {
       ON rm.room_id = r.room_id
      AND rm.user_id = $2
      AND rm.status = 'APPROVED'
-    LEFT JOIN messages m ON m.room_id = r.room_id
+     AND rm.hidden_at IS NULL
+    LEFT JOIN messages m
+      ON m.room_id = r.room_id
+     AND m.created_at > COALESCE(rm.cleared_at, to_timestamp(0))
     WHERE r.room_id = $1
       AND r.is_active = TRUE
     GROUP BY r.room_id
@@ -88,6 +119,7 @@ async function getRoomSummaryForUser(roomId, userId, runner = query) {
 }
 
 async function listRooms(req, res) {
+  await ensureRoomMemberColumns();
   const result = await query(
     `
     SELECT
@@ -118,8 +150,10 @@ async function listRooms(req, res) {
       ON rm.room_id = r.room_id
      AND rm.user_id = $1
      AND rm.status = 'APPROVED'
+     AND rm.hidden_at IS NULL
     LEFT JOIN messages m
       ON m.room_id = r.room_id
+     AND m.created_at > COALESCE(rm.cleared_at, to_timestamp(0))
     WHERE r.is_active = TRUE
     GROUP BY r.room_id
     ORDER BY COALESCE(MAX(m.created_at), r.created_at) DESC
@@ -132,7 +166,57 @@ async function listRooms(req, res) {
   return res.json({ rooms });
 }
 
+async function listPublicGroups(req, res) {
+  await ensureRoomMemberColumns();
+  const result = await query(
+    `
+    SELECT
+      r.room_id,
+      r.room_name,
+      r.created_at,
+      MAX(m.created_at) AS last_message_at,
+      COALESCE(
+        (
+          SELECT COUNT(*)
+          FROM room_members rm_count
+          WHERE rm_count.room_id = r.room_id
+            AND rm_count.status = 'APPROVED'
+        ),
+        0
+      )::int AS members_count,
+      EXISTS (
+        SELECT 1
+        FROM room_members rm_self
+        WHERE rm_self.room_id = r.room_id
+          AND rm_self.user_id = $1
+          AND rm_self.status = 'APPROVED'
+          AND rm_self.hidden_at IS NULL
+      ) AS is_member
+    FROM rooms r
+    LEFT JOIN messages m ON m.room_id = r.room_id
+    WHERE r.room_type = 'PUBLIC'
+      AND r.is_active = TRUE
+    GROUP BY r.room_id
+    ORDER BY COALESCE(MAX(m.created_at), r.created_at) DESC
+    `,
+    [req.user.user_id]
+  );
+
+  const groups = result.rows.map((row) => ({
+    id: row.room_id,
+    title: row.room_name || "Group",
+    type: "group",
+    avatar: toGroupAvatar(row.room_name),
+    membersCount: Number(row.members_count) || 0,
+    isMember: Boolean(row.is_member),
+    lastMessageAt: row.last_message_at || row.created_at,
+  }));
+
+  return res.json({ groups });
+}
+
 async function createPrivateRoom(req, res) {
+  await ensureRoomMemberColumns();
   const { targetUserId } = req.body;
 
   if (!targetUserId) {
@@ -182,6 +266,15 @@ async function createPrivateRoom(req, res) {
       existingRoom.requester_status === "APPROVED" &&
       existingRoom.target_status === "APPROVED"
     ) {
+      await query(
+        `
+        UPDATE room_members
+        SET hidden_at = NULL
+        WHERE room_id = $1
+          AND user_id = $2
+        `,
+        [existingRoom.room_id, req.user.user_id]
+      );
       const room = await getRoomSummaryForUser(existingRoom.room_id, req.user.user_id);
       return res.json({ room, requestPending: false, status: "APPROVED" });
     }
@@ -448,6 +541,7 @@ async function createGroupRoom(req, res) {
 }
 
 async function requestJoinGroup(req, res) {
+  await ensureRoomMemberColumns();
   const { roomId } = req.params;
 
   const groupResult = await query(
@@ -468,7 +562,7 @@ async function requestJoinGroup(req, res) {
 
   const existingMember = await query(
     `
-    SELECT status
+    SELECT status, hidden_at
     FROM room_members
     WHERE room_id = $1
       AND user_id = $2
@@ -479,18 +573,27 @@ async function requestJoinGroup(req, res) {
 
   if (existingMember.rowCount > 0) {
     const status = existingMember.rows[0].status;
+    const hiddenAt = existingMember.rows[0].hidden_at;
     if (status === "APPROVED") {
-      return res.status(409).json({ message: "You are already a group member" });
-    }
-
-    if (status === "PENDING") {
-      return res.status(202).json({ requestPending: true, status: "PENDING" });
+      if (hiddenAt) {
+        await query(
+          `
+          UPDATE room_members
+          SET hidden_at = NULL
+          WHERE room_id = $1
+            AND user_id = $2
+          `,
+          [roomId, req.user.user_id]
+        );
+      }
+      const room = await getRoomSummaryForUser(roomId, req.user.user_id);
+      return res.json({ joined: true, status: "APPROVED", room });
     }
 
     await query(
       `
       UPDATE room_members
-      SET status = 'PENDING', joined_at = NOW()
+      SET status = 'APPROVED', joined_at = NOW(), hidden_at = NULL
       WHERE room_id = $1
         AND user_id = $2
       `,
@@ -500,35 +603,19 @@ async function requestJoinGroup(req, res) {
     await query(
       `
       INSERT INTO room_members (room_id, user_id, role, status)
-      VALUES ($1, $2, 'MEMBER', 'PENDING')
+      VALUES ($1, $2, 'MEMBER', 'APPROVED')
       `,
       [roomId, req.user.user_id]
     );
   }
 
-  const adminResult = await query(
-    `
-    SELECT user_id
-    FROM room_members
-    WHERE room_id = $1
-      AND role = 'ADMIN'
-      AND status = 'APPROVED'
-      AND user_id <> $2
-    `,
-    [roomId, req.user.user_id]
-  );
+  const room = await getRoomSummaryForUser(roomId, req.user.user_id);
+  const io = getIO();
+  if (io && room) {
+    io.to(`user:${req.user.user_id}`).emit("room:available", { room });
+  }
 
-  adminResult.rows.forEach((admin) => {
-    notifyUser(admin.user_id, {
-      title: "Group join request",
-      body: `${req.user.username} requested to join ${groupResult.rows[0].room_name}`,
-      roomId,
-      type: "group_join_request",
-      timestamp: new Date().toISOString(),
-    });
-  });
-
-  return res.status(202).json({ requestPending: true, status: "PENDING" });
+  return res.json({ joined: true, status: "APPROVED", room });
 }
 
 async function listGroupJoinRequests(req, res) {
@@ -665,8 +752,32 @@ async function deleteGroupRoom(req, res) {
   return res.json({ success: true, roomId });
 }
 
+async function hideRoomHistory(req, res) {
+  await ensureRoomMemberColumns();
+  const { roomId } = req.params;
+
+  const result = await query(
+    `
+    UPDATE room_members
+    SET hidden_at = NOW()
+    WHERE room_id = $1
+      AND user_id = $2
+      AND status = 'APPROVED'
+    RETURNING room_id
+    `,
+    [roomId, req.user.user_id]
+  );
+
+  if (result.rowCount === 0) {
+    return res.status(404).json({ message: "Room not found" });
+  }
+
+  return res.json({ success: true, roomId });
+}
+
 module.exports = {
   listRooms,
+  listPublicGroups,
   createPrivateRoom,
   listPrivateRequests,
   respondPrivateRequest,
@@ -675,5 +786,6 @@ module.exports = {
   listGroupJoinRequests,
   respondGroupJoinRequest,
   deleteGroupRoom,
+  hideRoomHistory,
   getRoomSummaryForUser,
 };

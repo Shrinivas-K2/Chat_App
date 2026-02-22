@@ -5,6 +5,11 @@ export async function getRoomsApi() {
   return response.data.rooms || [];
 }
 
+export async function getPublicGroupsApi() {
+  const response = await httpClient.get("/rooms/groups/public");
+  return response.data.groups || [];
+}
+
 export async function createGroupRoomApi(payload) {
   const response = await httpClient.post("/rooms/group", payload);
   return response.data.room;
@@ -12,6 +17,11 @@ export async function createGroupRoomApi(payload) {
 
 export async function createPrivateRoomApi(payload) {
   const response = await httpClient.post("/rooms/private", payload);
+  return response.data;
+}
+
+export async function hideRoomHistoryApi(roomId) {
+  const response = await httpClient.patch(`/rooms/${roomId}/hide`);
   return response.data;
 }
 
@@ -27,5 +37,10 @@ export async function getPrivateRequestsApi() {
 
 export async function respondPrivateRequestApi(roomId, action) {
   const response = await httpClient.patch(`/rooms/private/requests/${roomId}`, { action });
+  return response.data;
+}
+
+export async function requestJoinGroupApi(roomId) {
+  const response = await httpClient.post(`/rooms/${roomId}/join-request`);
   return response.data;
 }

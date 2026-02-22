@@ -130,6 +130,13 @@ export const useChatStore = create((set, get) => ({
     }));
   },
 
+  clearNotificationsByRoom: (roomId) => {
+    if (!roomId) return;
+    set((state) => ({
+      notifications: state.notifications.filter((item) => item.roomId !== roomId),
+    }));
+  },
+
   clearNotifications: () => set({ notifications: [] }),
 
   reset: () =>

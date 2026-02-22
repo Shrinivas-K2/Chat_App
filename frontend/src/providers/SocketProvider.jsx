@@ -14,6 +14,7 @@ export function SocketProvider({ children }) {
   const pushNotification = useChatStore((state) => state.pushNotification);
   const upsertMessage = useChatStore((state) => state.upsertMessage);
   const upsertChat = useChatStore((state) => state.upsertChat);
+  const setMessagesForChat = useChatStore((state) => state.setMessagesForChat);
 
   useEffect(() => {
     if (!isAuthenticated || !token) {
@@ -52,6 +53,26 @@ export function SocketProvider({ children }) {
     const onRoomAvailable = ({ room }) => {
       if (room) {
         upsertChat(room);
+        pushNotification({
+          title: room.type === "direct" ? "Request accepted" : "Group joined",
+          body:
+            room.type === "direct"
+              ? "Your request was accepted. You can chat now."
+              : `You can now chat in ${room.title}.`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+
+    const onChatCleared = ({ chatId, clearedBy }) => {
+      if (!chatId) return;
+      setMessagesForChat(chatId, []);
+      if (clearedBy) {
+        pushNotification({
+          title: "Chat cleared",
+          body: "Messages were cleared in this chat.",
+          timestamp: new Date().toISOString(),
+        });
       }
     };
 
@@ -62,6 +83,7 @@ export function SocketProvider({ children }) {
     socket.on("message:updated", onMessageUpdated);
     socket.on("message:deleted", onMessageDeleted);
     socket.on("room:available", onRoomAvailable);
+    socket.on("chat:cleared", onChatCleared);
 
     return () => {
       socket.off("typing:update", onTyping);
@@ -71,6 +93,7 @@ export function SocketProvider({ children }) {
       socket.off("message:updated", onMessageUpdated);
       socket.off("message:deleted", onMessageDeleted);
       socket.off("room:available", onRoomAvailable);
+      socket.off("chat:cleared", onChatCleared);
     };
   }, [
     isAuthenticated,
@@ -80,6 +103,7 @@ export function SocketProvider({ children }) {
     pushNotification,
     upsertMessage,
     upsertChat,
+    setMessagesForChat,
   ]);
 
   const value = useMemo(() => socketClient, []);

@@ -38,6 +38,8 @@ CREATE TABLE room_members (
     role VARCHAR(20) DEFAULT 'MEMBER' CHECK (role IN ('ADMIN', 'MEMBER')),
     status VARCHAR(20) DEFAULT 'APPROVED' CHECK (status IN ('PENDING','APPROVED','REJECTED')),
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    cleared_at TIMESTAMP,
+    hidden_at TIMESTAMP,
     PRIMARY KEY (room_id, user_id)
 );
 
