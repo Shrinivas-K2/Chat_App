@@ -1346,7 +1346,9 @@ a {
   .chat-panel {
     min-height: 56vh;
     min-height: 56dvh;
-    height: auto;
+    height: min(68vh, 68dvh);
+    max-height: min(68vh, 68dvh);
+    overflow: hidden;
     order: 1;
   }
 
@@ -1389,6 +1391,15 @@ a {
     white-space: normal;
   }
 
+  .chat-empty-panel {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .message-list-wrap {
+    overscroll-behavior: contain;
+  }
+
   .notification-card {
     position: fixed;
     top: 64px;
@@ -1421,6 +1432,11 @@ a {
     height: auto;
     min-height: calc(100vh - 128px);
     min-height: calc(100dvh - 128px);
+  }
+
+  .chat-panel {
+    height: min(64vh, 64dvh);
+    max-height: min(64vh, 64dvh);
   }
 
   .composer-row {
@@ -1462,6 +1478,11 @@ a {
     padding: 8px;
     min-height: calc(100vh - 128px);
     min-height: calc(100dvh - 128px);
+  }
+
+  .chat-panel {
+    height: min(60vh, 60dvh);
+    max-height: min(60vh, 60dvh);
   }
 
   .chat-sidebar {
