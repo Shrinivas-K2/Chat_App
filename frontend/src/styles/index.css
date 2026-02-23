@@ -304,6 +304,13 @@ a {
   color: inherit;
 }
 
+.profile-link span {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .main-content {
   padding: 16px 20px;
   min-height: 0;
@@ -1275,20 +1282,23 @@ a {
   }
 
   .chat-grid,
+  .chat-grid.two-col,
   .profile-page {
     grid-template-columns: 1fr;
     gap: 10px;
   }
 
   .chat-sidebar {
-    max-height: 42vh;
-    max-height: 42dvh;
-    overflow: auto;
+    max-height: none;
+    overflow: visible;
+    order: 2;
   }
 
   .chat-panel {
     min-height: 56vh;
     min-height: 56dvh;
+    height: auto;
+    order: 1;
   }
 
   .chat-panel-head {
@@ -1312,9 +1322,22 @@ a {
 
   .main-content {
     padding: 12px;
-    height: calc(100vh - 116px);
-    height: calc(100dvh - 116px);
-    overflow: hidden;
+    height: auto;
+    min-height: calc(100vh - 116px);
+    min-height: calc(100dvh - 116px);
+    overflow: auto;
+  }
+
+  .header-actions {
+    gap: 8px;
+  }
+
+  .chat-list-top {
+    align-items: flex-start;
+  }
+
+  .chat-list-top > span {
+    white-space: normal;
   }
 
   .notification-card {
@@ -1326,8 +1349,8 @@ a {
   }
 
   .toast-stack {
-    top: auto;
-    bottom: 14px;
+    top: 74px;
+    bottom: auto;
     left: 14px;
     right: 14px;
     width: auto;
@@ -1346,8 +1369,9 @@ a {
 
   .main-content {
     padding: 10px;
-    height: calc(100vh - 128px);
-    height: calc(100dvh - 128px);
+    height: auto;
+    min-height: calc(100vh - 128px);
+    min-height: calc(100dvh - 128px);
   }
 
   .composer-row {
@@ -1379,6 +1403,8 @@ a {
 
   .main-content {
     padding: 8px;
+    min-height: calc(100vh - 128px);
+    min-height: calc(100dvh - 128px);
   }
 
   .chat-sidebar {
@@ -1407,7 +1433,8 @@ a {
   .toast-stack {
     left: 8px;
     right: 8px;
-    bottom: 8px;
+    top: 70px;
+    bottom: auto;
   }
 
   .request-actions {
