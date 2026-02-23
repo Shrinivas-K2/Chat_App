@@ -3,7 +3,7 @@ import { AuthForm } from "../components/AuthForm";
 import { useAuthActions } from "../hooks/useAuthActions";
 
 export function SignupPage() {
-  const { signUp, isSubmitting, error } = useAuthActions();
+  const { signUp, signInWithGoogle, isSubmitting, error } = useAuthActions();
 
   return (
     <AuthLayout
@@ -13,7 +13,13 @@ export function SignupPage() {
       alternateLink="/login"
       alternateLabel="Login"
     >
-      <AuthForm type="signup" onSubmit={signUp} isSubmitting={isSubmitting} error={error} />
+      <AuthForm
+        type="signup"
+        onSubmit={signUp}
+        onGoogleAuth={signInWithGoogle}
+        isSubmitting={isSubmitting}
+        error={error}
+      />
     </AuthLayout>
   );
 }

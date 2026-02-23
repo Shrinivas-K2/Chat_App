@@ -15,6 +15,11 @@ export async function signupApi(payload) {
   return response.data;
 }
 
+export async function googleAuthApi(payload) {
+  const response = await httpClient.post("/auth/google", payload);
+  return response.data;
+}
+
 export async function meApi() {
   const response = await httpClient.get("/auth/me");
   return response.data;

@@ -105,6 +105,7 @@ export function ConnectedUsersSidebar({
             {onlineUsers.map((user) => {
               const directRoom = directRooms.find((room) => room.directUserId === user.id);
               const isActive = activeChatId && directRoom?.id === activeChatId;
+              const unreadCount = directRoom?.id ? unreadByRoom[directRoom.id] || 0 : 0;
 
               return (
                 <button
@@ -113,7 +114,14 @@ export function ConnectedUsersSidebar({
                   onClick={() => handleUserClick(user)}
                   type="button"
                 >
-                  <Avatar text={user.avatar} />
+                  <div className="avatar-unread-wrap">
+                    <Avatar text={user.avatar} />
+                    {unreadCount > 0 ? (
+                      <span className="avatar-unread-badge">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="chat-list-body">
                     <div className="chat-list-top">
                       <span>{user.name}</span>

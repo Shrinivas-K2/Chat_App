@@ -35,6 +35,7 @@ const env = {
 
   JWT_SECRET: process.env.JWT_SECRET || "dev-secret",
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
+  GOOGLE_CLIENT_ID: asString(process.env.GOOGLE_CLIENT_ID, ""),
 };
 
 module.exports = env;

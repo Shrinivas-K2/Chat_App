@@ -3,6 +3,7 @@ import { MainLayout } from "../../../components/layout/MainLayout";
 import { ConnectedUsersSidebar } from "../../../components/chat/ConnectedUsersSidebar";
 import { MessageList } from "../../../components/messages/MessageList";
 import { MessageComposer } from "../../../components/messages/MessageComposer";
+import { PopupDialog } from "../../../components/common/PopupDialog";
 import { useChatStore } from "../../../store/chatStore";
 import { useAuthStore } from "../../../store/authStore";
 import { useSocket } from "../../../hooks/useSocket";
@@ -35,6 +36,11 @@ export function ChatPage() {
   const [connectedUsers, setConnectedUsers] = useState([]);
   const [publicGroups, setPublicGroups] = useState([]);
   const [hiddenHistoryIds, setHiddenHistoryIds] = useState([]);
+  const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
+  const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false);
+  const [groupNameDraft, setGroupNameDraft] = useState("");
+  const [groupDialogError, setGroupDialogError] = useState("");
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   const user = useAuthStore((state) => state.user);
   const chats = useChatStore((state) => state.chats);
@@ -266,12 +272,14 @@ export function ChatPage() {
     }
   };
 
-  const handleClearChat = async () => {
+  const handleClearChat = () => {
     if (!activeChat) return;
+    setIsClearDialogOpen(true);
+  };
 
-    const ok = window.confirm("Clear all messages in this chat?");
-    if (!ok) return;
-
+  const confirmClearChat = async () => {
+    if (!activeChat) return;
+    setIsClearDialogOpen(false);
     try {
       await clearChatRoomApi(activeChat.id);
       setMessagesForChat(activeChat.id, []);
@@ -281,19 +289,34 @@ export function ChatPage() {
     }
   };
 
-  const handleCreateGroup = async () => {
-    const roomName = window.prompt("Group name");
-    if (!roomName || !roomName.trim()) return;
+  const handleCreateGroup = () => {
+    setGroupNameDraft("");
+    setGroupDialogError("");
+    setIsCreateGroupDialogOpen(true);
+  };
+
+  const submitCreateGroup = async () => {
+    const roomName = groupNameDraft.trim();
+    if (!roomName) {
+      setGroupDialogError("Group name is required.");
+      return;
+    }
 
     try {
+      setIsCreatingGroup(true);
       const room = await createGroupRoomApi({ roomName: roomName.trim(), memberIds: [] });
       upsertChat(room);
       setActiveChat(room.id);
       const groups = await getPublicGroupsApi();
       setPublicGroups(groups);
+      setIsCreateGroupDialogOpen(false);
+      setGroupNameDraft("");
+      setGroupDialogError("");
       setInfo("");
     } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to create group."));
+      setGroupDialogError(getApiErrorMessage(err, "Failed to create group."));
+    } finally {
+      setIsCreatingGroup(false);
     }
   };
 
@@ -458,6 +481,81 @@ export function ChatPage() {
           )}
         </section>
       </div>
+
+      <PopupDialog
+        open={isClearDialogOpen}
+        title="Clear This Chat?"
+        subtitle="This removes all messages from your current view."
+        tone="danger"
+        onClose={() => setIsClearDialogOpen(false)}
+      >
+        <p className="popup-note">
+          This action cannot be undone. Do you want to continue?
+        </p>
+        <div className="popup-actions">
+          <button className="btn btn-ghost" onClick={() => setIsClearDialogOpen(false)} type="button">
+            Cancel
+          </button>
+          <button className="btn btn-danger-solid" onClick={confirmClearChat} type="button">
+            Clear Chat
+          </button>
+        </div>
+      </PopupDialog>
+
+      <PopupDialog
+        open={isCreateGroupDialogOpen}
+        title="Create New Group"
+        subtitle="Choose a clear group name to get started."
+        onClose={() => {
+          if (isCreatingGroup) return;
+          setIsCreateGroupDialogOpen(false);
+        }}
+      >
+        <label className="popup-label" htmlFor="group-name-input">
+          Group Name
+        </label>
+        <input
+          id="group-name-input"
+          className="popup-input"
+          value={groupNameDraft}
+          maxLength={100}
+          autoFocus
+          onChange={(event) => {
+            setGroupNameDraft(event.target.value);
+            if (groupDialogError) {
+              setGroupDialogError("");
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (!isCreatingGroup) {
+                submitCreateGroup();
+              }
+            }
+          }}
+          placeholder="Team Updates"
+        />
+        {groupDialogError ? <p className="error-text">{groupDialogError}</p> : null}
+        <div className="popup-actions">
+          <button
+            className="btn btn-ghost"
+            onClick={() => setIsCreateGroupDialogOpen(false)}
+            type="button"
+            disabled={isCreatingGroup}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={submitCreateGroup}
+            type="button"
+            disabled={isCreatingGroup}
+          >
+            {isCreatingGroup ? "Creating..." : "Create Group"}
+          </button>
+        </div>
+      </PopupDialog>
     </MainLayout>
   );
 }

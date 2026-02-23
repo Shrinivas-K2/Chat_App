@@ -3,6 +3,7 @@
 ## Auth
 - `POST /api/v1/auth/signup`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/google`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
 

@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Button } from "../../../components/common/Button";
 import { InputField } from "../../../components/common/InputField";
 import { Loader } from "../../../components/common/Loader";
+import { GoogleAuthButton } from "./GoogleAuthButton";
 
-export function AuthForm({ type = "login", onSubmit, isSubmitting, error }) {
+export function AuthForm({ type = "login", onSubmit, onGoogleAuth, isSubmitting, error }) {
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -60,6 +61,10 @@ export function AuthForm({ type = "login", onSubmit, isSubmitting, error }) {
       <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? <Loader /> : isSignup ? "Create Account" : "Login"}
       </Button>
+
+      {onGoogleAuth ? (
+        <GoogleAuthButton isSubmitting={isSubmitting} onCredential={onGoogleAuth} />
+      ) : null}
     </form>
   );
 }

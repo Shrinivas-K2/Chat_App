@@ -57,6 +57,18 @@ export function MessageComposer({ onSend, onTyping }) {
     onTyping(false);
   };
 
+  const handleTextKeyDown = (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    // Send only on Ctrl/Cmd + Enter. Plain Enter should remain a newline.
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
     <div className="composer">
       <div className="media-row">
@@ -116,8 +128,9 @@ export function MessageComposer({ onSend, onTyping }) {
         <textarea
           className="composer-input"
           rows={2}
-          placeholder="Write a message..."
+          placeholder="Write a message... (Ctrl/Cmd + Enter to send)"
           value={text}
+          onKeyDown={handleTextKeyDown}
           onChange={(event) => {
             setText(event.target.value);
             onTyping(event.target.value.length > 0);

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginApi, signupApi } from "../api/authApi";
+import { googleAuthApi, loginApi, signupApi } from "../api/authApi";
 import { useAuthStore } from "../../../store/authStore";
 import { getApiErrorMessage } from "../../../utils/apiError";
 
@@ -10,7 +10,7 @@ export function useAuthActions() {
   const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
 
-  const signIn = async (payload) => {
+  const signIn = useCallback(async (payload) => {
     setIsSubmitting(true);
     setError("");
     try {
@@ -22,9 +22,9 @@ export function useAuthActions() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [login, navigate]);
 
-  const signUp = async (payload) => {
+  const signUp = useCallback(async (payload) => {
     setIsSubmitting(true);
     setError("");
     try {
@@ -35,7 +35,21 @@ export function useAuthActions() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [navigate]);
 
-  return { signIn, signUp, isSubmitting, error };
+  const signInWithGoogle = useCallback(async (credential) => {
+    setIsSubmitting(true);
+    setError("");
+    try {
+      const data = await googleAuthApi({ idToken: credential });
+      login(data);
+      navigate(data.user?.gender ? "/chat" : "/onboarding/gender");
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Unable to continue with Google right now."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [login, navigate]);
+
+  return { signIn, signUp, signInWithGoogle, isSubmitting, error };
 }

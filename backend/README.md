@@ -14,12 +14,14 @@ Default `.env.example` is aligned to your provided values:
 - `DB_NAME=chat_app`
 - `DB_USER=postgres`
 - `DB_PASSWORD=Pes123`
+- `GOOGLE_CLIENT_ID=<your-google-web-client-id>`
 
 If `DB_HOST=*` is used, backend normalizes it to `localhost`.
 
 ## Implemented APIs
 - `POST /api/v1/auth/signup`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/google`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/users/search?q=`
