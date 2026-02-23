@@ -1279,14 +1279,22 @@ a {
 
   .header-actions {
     justify-content: flex-start;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 7px;
     width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .header-actions::-webkit-scrollbar {
+    display: none;
   }
 
   .header-actions > * {
     min-width: 0;
+    flex: 0 0 auto;
   }
 
   .header-mid-action .btn-top-create-group {
@@ -1299,7 +1307,8 @@ a {
     display: inline-flex;
     justify-content: center;
     align-items: center;
-    width: 100%;
+    width: auto;
+    min-width: max-content;
     min-height: 36px;
     border: 1px solid var(--border);
     border-radius: 999px;
@@ -1346,8 +1355,8 @@ a {
   .chat-panel {
     min-height: 56vh;
     min-height: 56dvh;
-    height: min(68vh, 68dvh);
-    max-height: min(68vh, 68dvh);
+    height: min(72vh, 72dvh);
+    max-height: min(72vh, 72dvh);
     overflow: hidden;
     order: 1;
   }
@@ -1435,8 +1444,8 @@ a {
   }
 
   .chat-panel {
-    height: min(64vh, 64dvh);
-    max-height: min(64vh, 64dvh);
+    height: min(70vh, 70dvh);
+    max-height: min(70vh, 70dvh);
   }
 
   .composer-row {
@@ -1466,12 +1475,13 @@ a {
     padding: 10px;
   }
 
-  .header-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .header-actions .profile-link span {
-    display: none;
+    display: inline;
+    max-width: 56px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
   }
 
   .main-content {
@@ -1481,8 +1491,8 @@ a {
   }
 
   .chat-panel {
-    height: min(60vh, 60dvh);
-    max-height: min(60vh, 60dvh);
+    height: min(68vh, 68dvh);
+    max-height: min(68vh, 68dvh);
   }
 
   .chat-sidebar {
