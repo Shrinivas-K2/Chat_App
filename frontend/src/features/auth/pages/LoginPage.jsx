@@ -12,6 +12,17 @@ export function LoginPage() {
       alternateText="Need an account?"
       alternateLink="/signup"
       alternateLabel="Sign up"
+      promo={{
+        kicker: "Why Chat App",
+        title: "No more boring chats.",
+        description:
+          "Meet new people, chat instantly, and keep every message secure with modern encryption.",
+        points: [
+          "Discover random people and start conversations in seconds.",
+          "Private 1-to-1 messaging with encrypted text.",
+          "Open group chats for communities, study circles, and teams.",
+        ],
+      }}
     >
       <AuthForm
         type="login"

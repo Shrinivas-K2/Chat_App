@@ -1,6 +1,14 @@
 import { Link } from "react-router-dom";
 
-export function AuthLayout({ title, subtitle, children, alternateText, alternateLink, alternateLabel }) {
+export function AuthLayout({
+  title,
+  subtitle,
+  children,
+  alternateText,
+  alternateLink,
+  alternateLabel,
+  promo,
+}) {
   const videoSrc =
     "https://videos.pexels.com/video-files/3195650/3195650-hd_1920_1080_25fps.mp4";
 
@@ -9,6 +17,20 @@ export function AuthLayout({ title, subtitle, children, alternateText, alternate
       <section className="auth-left">
         <h1>{title}</h1>
         <p>{subtitle}</p>
+        {promo ? (
+          <article className="auth-inline-promo">
+            {promo.kicker ? <p className="auth-inline-kicker">{promo.kicker}</p> : null}
+            {promo.title ? <h3>{promo.title}</h3> : null}
+            {promo.description ? <p className="auth-inline-desc">{promo.description}</p> : null}
+            {Array.isArray(promo.points) && promo.points.length > 0 ? (
+              <ul className="auth-inline-list">
+                {promo.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            ) : null}
+          </article>
+        ) : null}
         <div className="auth-card">{children}</div>
         <p className="auth-alt">
           {alternateText} <Link to={alternateLink}>{alternateLabel}</Link>
