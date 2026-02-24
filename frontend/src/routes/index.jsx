@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
+import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { ChatPage } from "../features/chat/pages/ChatPage";
 import { ProfilePage } from "../features/user/pages/ProfilePage";
 import { GenderOnboardingPage } from "../features/user/pages/GenderOnboardingPage";
@@ -16,6 +17,8 @@ export function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
       </Route>
+
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<GenderSetupOnlyRoute />}>

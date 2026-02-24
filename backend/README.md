@@ -15,6 +15,10 @@ Default `.env.example` is aligned to your provided values:
 - `DB_USER=postgres`
 - `DB_PASSWORD=Pes123`
 - `GOOGLE_CLIENT_ID=<your-google-web-client-id>`
+- `APP_BASE_URL=<frontend-url-for-email-links>`
+- `EMAIL_VERIFICATION_TTL_MINUTES=1440`
+- `RESEND_API_KEY=<optional-for-real-email-delivery>`
+- `EMAIL_FROM=Chat App <onboarding@yourdomain.com>`
 
 If `DB_HOST=*` is used, backend normalizes it to `localhost`.
 
@@ -22,6 +26,8 @@ If `DB_HOST=*` is used, backend normalizes it to `localhost`.
 - `POST /api/v1/auth/signup`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/google`
+- `POST /api/v1/auth/verify-email`
+- `POST /api/v1/auth/resend-verification`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/users/search?q=`

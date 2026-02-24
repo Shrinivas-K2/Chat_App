@@ -20,6 +20,16 @@ export async function googleAuthApi(payload) {
   return response.data;
 }
 
+export async function verifyEmailApi(payload) {
+  const response = await httpClient.post("/auth/verify-email", payload);
+  return response.data;
+}
+
+export async function resendVerificationApi(payload) {
+  const response = await httpClient.post("/auth/resend-verification", payload);
+  return response.data;
+}
+
 export async function meApi() {
   const response = await httpClient.get("/auth/me");
   return response.data;

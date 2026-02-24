@@ -11,6 +11,9 @@ CREATE TABLE users (
     bio TEXT,
     is_online BOOLEAN DEFAULT FALSE,
     last_seen TIMESTAMP,
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    email_verification_token_hash TEXT,
+    email_verification_expires_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

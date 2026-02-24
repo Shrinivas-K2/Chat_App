@@ -18,6 +18,24 @@ export function useAuthActions() {
       login(data);
       navigate(data.user?.gender ? "/chat" : "/onboarding/gender");
     } catch (err) {
+      const requiresEmailVerification = Boolean(err?.response?.data?.requiresEmailVerification);
+
+      if (requiresEmailVerification) {
+        const email = String(err?.response?.data?.email || payload?.email || "").trim();
+        const params = new URLSearchParams();
+
+        if (email) {
+          params.set("email", email);
+        }
+
+        navigate(`/verify-email${params.toString() ? `?${params.toString()}` : ""}`, {
+          state: {
+            message: "Email is not verified yet. Please verify first.",
+          },
+        });
+        return;
+      }
+
       setError(getApiErrorMessage(err, "Unable to login right now."));
     } finally {
       setIsSubmitting(false);
@@ -28,8 +46,20 @@ export function useAuthActions() {
     setIsSubmitting(true);
     setError("");
     try {
-      await signupApi(payload);
-      navigate("/login");
+      const data = await signupApi(payload);
+      const email = String(payload?.email || "").trim();
+      const params = new URLSearchParams();
+
+      if (email) {
+        params.set("email", email);
+      }
+
+      navigate(`/verify-email${params.toString() ? `?${params.toString()}` : ""}`, {
+        replace: true,
+        state: {
+          message: data?.message || "Account created. Check your email for verification.",
+        },
+      });
     } catch (err) {
       setError(getApiErrorMessage(err, "Unable to create account right now."));
     } finally {

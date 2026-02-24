@@ -23,7 +23,8 @@ async function authMiddleware(req, res, next) {
         u.is_online,
         u.last_seen,
         u.gender,
-        u.date_of_birth
+        u.date_of_birth,
+        u.email_verified
       FROM user_sessions s
       JOIN users u ON u.user_id = s.user_id
       WHERE s.jwt_token = $1

@@ -1046,6 +1046,26 @@ a {
   font-size: 0.86rem;
 }
 
+.success-text,
+.info-text {
+  margin: 6px 0 0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.86rem;
+}
+
+.success-text {
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.info-text {
+  color: #0f766e;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+}
+
 .popup-backdrop {
   position: fixed;
   inset: 0;

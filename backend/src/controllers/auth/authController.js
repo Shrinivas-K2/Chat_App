@@ -2,16 +2,23 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { pool, query } = require("../../config/db");
 const { signToken, tokenExpiresAt } = require("../../utils/jwt");
-const { GOOGLE_CLIENT_ID } = require("../../config/env");
+const {
+  GOOGLE_CLIENT_ID,
+  APP_BASE_URL,
+  EMAIL_VERIFICATION_TTL_MINUTES,
+} = require("../../config/env");
+const { sendEmailVerificationEmail } = require("../../services/email/emailService");
 
 const GOOGLE_TOKEN_INFO_URL = "https://oauth2.googleapis.com/tokeninfo?id_token=";
 const GOOGLE_ISSUERS = new Set(["accounts.google.com", "https://accounts.google.com"]);
+const MIN_EMAIL_VERIFICATION_MINUTES = 5;
 
 function sanitizeUser(user) {
   return {
     id: user.user_id,
     name: user.username,
     email: user.email,
+    emailVerified: Boolean(user.email_verified),
     avatar: (user.username || "U").slice(0, 2).toUpperCase(),
     profilePicture: user.profile_picture,
     bio: user.bio,
@@ -32,6 +39,40 @@ function normalizeEmail(email) {
 
 function normalizeUsername(username) {
   return String(username || "").trim();
+}
+
+function createEmailVerificationToken() {
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const ttlMinutes = Math.max(MIN_EMAIL_VERIFICATION_MINUTES, Number(EMAIL_VERIFICATION_TTL_MINUTES) || 0);
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+  return { token, tokenHash, expiresAt };
+}
+
+function buildEmailVerificationUrl(token) {
+  const safeBaseUrl = String(APP_BASE_URL || "").trim();
+
+  if (!safeBaseUrl) {
+    return `/verify-email?token=${encodeURIComponent(token)}`;
+  }
+
+  try {
+    const url = new URL("/verify-email", safeBaseUrl.endsWith("/") ? safeBaseUrl : `${safeBaseUrl}/`);
+    url.searchParams.set("token", token);
+    return url.toString();
+  } catch (error) {
+    return `${safeBaseUrl.replace(/\/+$/, "")}/verify-email?token=${encodeURIComponent(token)}`;
+  }
+}
+
+async function sendVerificationEmailToUser({ email, username, token }) {
+  const verificationUrl = buildEmailVerificationUrl(token);
+  return sendEmailVerificationEmail({
+    to: email,
+    username,
+    verificationUrl,
+  });
 }
 
 function buildGoogleUsernameBase(value) {
@@ -187,33 +228,92 @@ async function signup(req, res) {
   }
 
   const client = await pool.connect();
+  let verificationToken;
+  let createdUser;
 
   try {
     await client.query("BEGIN");
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const verification = createEmailVerificationToken();
+    verificationToken = verification.token;
 
     const userResult = await client.query(
       `
-      INSERT INTO users (username, email, password_hash, is_online)
-      VALUES ($1, $2, $3, TRUE)
-      RETURNING user_id, username, email, profile_picture, bio, is_online, last_seen, gender, date_of_birth
+      INSERT INTO users (
+        username,
+        email,
+        password_hash,
+        is_online,
+        email_verified,
+        email_verification_token_hash,
+        email_verification_expires_at
+      )
+      VALUES ($1, $2, $3, FALSE, FALSE, $4, $5)
+      RETURNING
+        user_id,
+        username,
+        email,
+        profile_picture,
+        bio,
+        is_online,
+        last_seen,
+        gender,
+        date_of_birth,
+        email_verified
       `,
-      [normalizedUsername, normalizedEmail, passwordHash]
+      [
+        normalizedUsername,
+        normalizedEmail,
+        passwordHash,
+        verification.tokenHash,
+        verification.expiresAt,
+      ]
     );
 
-    const user = userResult.rows[0];
-    const { token } = await createSession(client, user);
+    createdUser = userResult.rows[0];
 
     await client.query("COMMIT");
-
-    return res.status(201).json({ token, user: sanitizeUser(user) });
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();
   }
+
+  try {
+    const emailResult = await sendVerificationEmailToUser({
+      email: normalizedEmail,
+      username: normalizedUsername,
+      token: verificationToken,
+    });
+
+    if (!emailResult?.queued) {
+      return res.status(201).json({
+        message:
+          "Account created, but verification email service is not configured on server. Contact support.",
+        email: normalizedEmail,
+        user: sanitizeUser(createdUser),
+        verificationEmailSent: false,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to send verification email", error);
+
+    return res.status(201).json({
+      message: "Account created, but verification email could not be delivered. Please try resend later.",
+      email: normalizedEmail,
+      user: sanitizeUser(createdUser),
+      verificationEmailSent: false,
+    });
+  }
+
+  return res.status(201).json({
+    message: "Account created. Please verify your email before logging in.",
+    email: normalizedEmail,
+    user: sanitizeUser(createdUser),
+    verificationEmailSent: true,
+  });
 }
 
 async function login(req, res) {
@@ -226,7 +326,18 @@ async function login(req, res) {
 
   const userResult = await query(
     `
-    SELECT user_id, username, email, password_hash, profile_picture, bio, is_online, last_seen, gender, date_of_birth
+    SELECT
+      user_id,
+      username,
+      email,
+      password_hash,
+      profile_picture,
+      bio,
+      is_online,
+      last_seen,
+      gender,
+      date_of_birth,
+      email_verified
     FROM users
     WHERE email = $1
     LIMIT 1
@@ -243,6 +354,14 @@ async function login(req, res) {
 
   if (!isMatch) {
     return res.status(401).json({ message: "Invalid credentials" });
+  }
+
+  if (!user.email_verified) {
+    return res.status(403).json({
+      message: "Email is not verified. Please verify your email before login.",
+      requiresEmailVerification: true,
+      email: user.email,
+    });
   }
 
   const token = signToken({ sub: user.user_id, email: user.email });
@@ -283,7 +402,17 @@ async function googleAuth(req, res) {
 
     const existingResult = await client.query(
       `
-      SELECT user_id, username, email, profile_picture, bio, is_online, last_seen, gender, date_of_birth
+      SELECT
+        user_id,
+        username,
+        email,
+        profile_picture,
+        bio,
+        is_online,
+        last_seen,
+        gender,
+        date_of_birth,
+        email_verified
       FROM users
       WHERE email = $1
       LIMIT 1
@@ -300,9 +429,22 @@ async function googleAuth(req, res) {
         UPDATE users
         SET profile_picture = COALESCE(profile_picture, $2),
             is_online = TRUE,
+            email_verified = TRUE,
+            email_verification_token_hash = NULL,
+            email_verification_expires_at = NULL,
             updated_at = NOW()
         WHERE user_id = $1
-        RETURNING user_id, username, email, profile_picture, bio, is_online, last_seen, gender, date_of_birth
+        RETURNING
+          user_id,
+          username,
+          email,
+          profile_picture,
+          bio,
+          is_online,
+          last_seen,
+          gender,
+          date_of_birth,
+          email_verified
         `,
         [existingUser.user_id, googleProfile.profilePicture || null]
       );
@@ -317,9 +459,19 @@ async function googleAuth(req, res) {
 
       const created = await client.query(
         `
-        INSERT INTO users (username, email, password_hash, profile_picture, is_online)
-        VALUES ($1, $2, $3, $4, TRUE)
-        RETURNING user_id, username, email, profile_picture, bio, is_online, last_seen, gender, date_of_birth
+        INSERT INTO users (username, email, password_hash, profile_picture, is_online, email_verified)
+        VALUES ($1, $2, $3, $4, TRUE, TRUE)
+        RETURNING
+          user_id,
+          username,
+          email,
+          profile_picture,
+          bio,
+          is_online,
+          last_seen,
+          gender,
+          date_of_birth,
+          email_verified
         `,
         [username, googleProfile.email, passwordHash, googleProfile.profilePicture || null]
       );
@@ -338,6 +490,131 @@ async function googleAuth(req, res) {
   } finally {
     client.release();
   }
+}
+
+async function verifyEmail(req, res) {
+  const token = String(req.body.token || "").trim();
+
+  if (!token) {
+    return res.status(400).json({ message: "Verification token is required" });
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const userResult = await query(
+    `
+    SELECT
+      user_id,
+      email,
+      email_verified,
+      email_verification_expires_at
+    FROM users
+    WHERE email_verification_token_hash = $1
+    LIMIT 1
+    `,
+    [tokenHash]
+  );
+
+  if (userResult.rowCount === 0) {
+    return res.status(400).json({ message: "Invalid verification token" });
+  }
+
+  const user = userResult.rows[0];
+
+  if (user.email_verified) {
+    return res.json({ success: true, message: "Email is already verified", email: user.email });
+  }
+
+  const expiresAt = user.email_verification_expires_at
+    ? new Date(user.email_verification_expires_at).getTime()
+    : 0;
+
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    return res.status(410).json({ message: "Verification token has expired. Please request a new email." });
+  }
+
+  await query(
+    `
+    UPDATE users
+    SET email_verified = TRUE,
+        email_verification_token_hash = NULL,
+        email_verification_expires_at = NULL,
+        updated_at = NOW()
+    WHERE user_id = $1
+    `,
+    [user.user_id]
+  );
+
+  return res.json({
+    success: true,
+    message: "Email verified successfully. You can login now.",
+    email: user.email,
+  });
+}
+
+async function resendVerification(req, res) {
+  const normalizedEmail = normalizeEmail(req.body.email);
+
+  if (!normalizedEmail) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  const userResult = await query(
+    `
+    SELECT user_id, username, email, email_verified
+    FROM users
+    WHERE email = $1
+    LIMIT 1
+    `,
+    [normalizedEmail]
+  );
+
+  if (userResult.rowCount === 0) {
+    return res.json({ success: true, message: "If the email exists, a verification link has been sent." });
+  }
+
+  const user = userResult.rows[0];
+
+  if (user.email_verified) {
+    return res.json({ success: true, message: "Email is already verified. Please login." });
+  }
+
+  const verification = createEmailVerificationToken();
+
+  await query(
+    `
+    UPDATE users
+    SET email_verification_token_hash = $2,
+        email_verification_expires_at = $3,
+        updated_at = NOW()
+    WHERE user_id = $1
+    `,
+    [user.user_id, verification.tokenHash, verification.expiresAt]
+  );
+
+  try {
+    const emailResult = await sendVerificationEmailToUser({
+      email: user.email,
+      username: user.username,
+      token: verification.token,
+    });
+
+    if (!emailResult?.queued) {
+      return res.status(503).json({
+        message: "Verification email service is not configured on server.",
+      });
+    }
+  } catch (error) {
+    console.error("Failed to resend verification email", error);
+    return res.status(502).json({
+      message: "Unable to send verification email right now. Please try again later.",
+    });
+  }
+
+  return res.json({
+    success: true,
+    message: "Verification email sent. Please check your inbox.",
+    email: user.email,
+  });
 }
 
 async function me(req, res) {
@@ -366,4 +643,4 @@ async function logout(req, res) {
   return res.json({ success: true });
 }
 
-module.exports = { signup, login, googleAuth, me, logout };
+module.exports = { signup, login, googleAuth, verifyEmail, resendVerification, me, logout };

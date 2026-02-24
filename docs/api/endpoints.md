@@ -4,6 +4,8 @@
 - `POST /api/v1/auth/signup`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/google`
+- `POST /api/v1/auth/verify-email`
+- `POST /api/v1/auth/resend-verification`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
 
