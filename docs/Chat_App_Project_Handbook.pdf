@@ -1,0 +1,976 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R 20 0 R 22 0 R 24 0 R 26 0 R 28 0 R 30 0 R 32 0 R] /Count 15 >>
+endobj
+3 0 obj
+<< /Length 1731 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(# Realtime Chat App - Complete Project Handbook) Tj
+T* () Tj
+T* (Prepared on: 2026-02-24) Tj
+T* () Tj
+T* (## 1. Executive Summary) Tj
+T* () Tj
+T* (This project is a full-stack real-time chat platform built with a clean separation of concerns:) Tj
+T* () Tj
+T* (- Frontend: React + Vite + Zustand + Socket.IO client) Tj
+T* (- Backend: Node.js + Express + PostgreSQL + Socket.IO server) Tj
+T* (- Auth: JWT session model with DB-backed session validation) Tj
+T* (- Realtime: room-based messaging, typing, seen status, and notification events) Tj
+T* (- Additional auth features: Google Sign-In and email verification workflow) Tj
+T* () Tj
+T* (The codebase follows a modular, feature-first structure on frontend and controller-route-service ) Tj
+T* (layering on backend.) Tj
+T* () Tj
+T* (## 2. Repository Structure) Tj
+T* () Tj
+T* (```text) Tj
+T* (Chat_App/) Tj
+T* (  backend/) Tj
+T* (    src/) Tj
+T* (      config/) Tj
+T* (      controllers/) Tj
+T* (      middlewares/) Tj
+T* (      routes/) Tj
+T* (      services/) Tj
+T* (      utils/) Tj
+T* (    Chat_App.sql) Tj
+T* (  frontend/) Tj
+T* (    src/) Tj
+T* (      app/) Tj
+T* (      components/) Tj
+T* (      features/) Tj
+T* (      providers/) Tj
+T* (      routes/) Tj
+T* (      services/) Tj
+T* (      store/) Tj
+T* (      styles/) Tj
+T* (  docs/) Tj
+T* (  shared/) Tj
+T* (```) Tj
+T* () Tj
+T* (## 3. Technology Stack and Why It Was Chosen) Tj
+T* () Tj
+T* (### Backend) Tj
+T* () Tj
+T* (- Express: lightweight API layer) Tj
+T* (- PostgreSQL \(`pg`\): relational consistency for users, rooms, members, messages, statuses) Tj
+T* (- JWT \(`jsonwebtoken`\): signed stateless tokens) Tj
+T* (- Socket.IO: realtime bidirectional events with room partitioning) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 3 0 R >>
+endobj
+5 0 obj
+<< /Length 1771 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(- bcryptjs: password hashing) Tj
+T* (- Resend API: transactional verification email delivery) Tj
+T* () Tj
+T* (### Frontend) Tj
+T* () Tj
+T* (- React: component-driven UI) Tj
+T* (- React Router: route guards and page-level auth flow) Tj
+T* (- Zustand: simple global state \(auth/chat\) without heavy boilerplate) Tj
+T* (- Axios: centralized HTTP client and token injection) Tj
+T* (- Socket.IO client: realtime sync with backend events) Tj
+T* () Tj
+T* (## 4. Backend Module-by-Module Explanation) Tj
+T* () Tj
+T* (### 4.1 Config Layer) Tj
+T* () Tj
+T* (#### `backend/src/config/env.js`) Tj
+T* (Responsibility:) Tj
+T* (- Reads environment variables) Tj
+T* (- Applies defaults) Tj
+T* (- Normalizes multi-origin CORS config) Tj
+T* (- Exposes auth/email/google config) Tj
+T* () Tj
+T* (Key variables:) Tj
+T* (- `CLIENT_ORIGIN`) Tj
+T* (- `APP_BASE_URL`) Tj
+T* (- `JWT_SECRET`, `JWT_EXPIRES_IN`) Tj
+T* (- `GOOGLE_CLIENT_ID`) Tj
+T* (- `EMAIL_VERIFICATION_TTL_MINUTES`) Tj
+T* (- `RESEND_API_KEY`, `EMAIL_FROM`) Tj
+T* () Tj
+T* (#### `backend/src/config/db.js`) Tj
+T* (Responsibility:) Tj
+T* (- Creates PostgreSQL pool) Tj
+T* (- Validates DB password presence) Tj
+T* (- Exposes `connectDB\(\)` and `query\(\)`) Tj
+T* () Tj
+T* (Method used:) Tj
+T* (- Shared pool for efficiency) Tj
+T* (- SSL toggle via env for production compatibility) Tj
+T* () Tj
+T* (### 4.2 Middleware Layer) Tj
+T* () Tj
+T* (#### `backend/src/middlewares/authMiddleware.js`) Tj
+T* (Responsibility:) Tj
+T* (- Extract bearer token) Tj
+T* (- Verify JWT signature) Tj
+T* (- Validate active session in `user_sessions`) Tj
+T* (- Attach `req.user`, `req.token`, `req.jwt`) Tj
+T* () Tj
+T* (Method used:) Tj
+T* (- Two-step auth: cryptographic JWT verification + DB session validity) Tj
+T* () Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 1744 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(#### `backend/src/middlewares/errorHandler.js`) Tj
+T* (Responsibility:) Tj
+T* (- Unified not-found and error responses) Tj
+T* (- Logs server errors \(`>=500`\)) Tj
+T* () Tj
+T* (### 4.3 Utility Layer) Tj
+T* () Tj
+T* (#### `backend/src/utils/jwt.js`) Tj
+T* (Methods:) Tj
+T* (- `signToken\(payload\)`) Tj
+T* (- `verifyToken\(token\)`) Tj
+T* (- `tokenExpiresAt\(token\)`) Tj
+T* () Tj
+T* (#### `backend/src/utils/asyncHandler.js`) Tj
+T* (Method:) Tj
+T* (- Wraps async controllers to forward promise rejections to central error handler) Tj
+T* () Tj
+T* (### 4.4 Routes Layer) Tj
+T* () Tj
+T* (#### `backend/src/routes/v1/authRoutes.js`) Tj
+T* (- `POST /auth/signup`) Tj
+T* (- `POST /auth/login`) Tj
+T* (- `POST /auth/google`) Tj
+T* (- `POST /auth/verify-email`) Tj
+T* (- `POST /auth/resend-verification`) Tj
+T* (- `GET /auth/me`) Tj
+T* (- `POST /auth/logout`) Tj
+T* () Tj
+T* (#### `backend/src/routes/v1/roomRoutes.js`) Tj
+T* (Room listing, private requests, group creation, group joins, room history hide.) Tj
+T* () Tj
+T* (#### `backend/src/routes/v1/messageRoutes.js`) Tj
+T* (Message list/send/edit/delete/seen and room clear operations.) Tj
+T* () Tj
+T* (#### `backend/src/routes/v1/userRoutes.js`) Tj
+T* (User search, connected users list, one-time gender onboarding.) Tj
+T* () Tj
+T* (### 4.5 Controller Layer) Tj
+T* () Tj
+T* (#### Auth Controller \(`backend/src/controllers/auth/authController.js`\)) Tj
+T* (Main methods:) Tj
+T* (- `signup`) Tj
+T* (- `login`) Tj
+T* (- `googleAuth`) Tj
+T* (- `verifyEmail`) Tj
+T* (- `resendVerification`) Tj
+T* (- `me`) Tj
+T* (- `logout`) Tj
+T* () Tj
+T* (Implementation methods used:) Tj
+T* (- Password hashing via bcrypt) Tj
+T* (- Email normalization and username normalization) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 2066 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(- Session creation in `user_sessions`) Tj
+T* (- Google token verification with issuer/audience/expiry checks) Tj
+T* (- Email verification token hashing \(SHA-256\)) Tj
+T* (- Verification URL generation with `APP_BASE_URL`) Tj
+T* () Tj
+T* (#### Room Controller \(`backend/src/controllers/chat/roomController.js`\)) Tj
+T* (Main methods:) Tj
+T* (- `listRooms`) Tj
+T* (- `listPublicGroups`) Tj
+T* (- `createPrivateRoom`) Tj
+T* (- `respondPrivateRequest`) Tj
+T* (- `createGroupRoom`) Tj
+T* (- `requestJoinGroup`) Tj
+T* (- `deleteGroupRoom`) Tj
+T* (- `hideRoomHistory`) Tj
+T* () Tj
+T* (Implementation methods used:) Tj
+T* (- Query-time member aggregation with JSON in SQL) Tj
+T* (- Private room membership state machine \(`PENDING`, `APPROVED`, `REJECTED`\)) Tj
+T* (- Event-driven notifications via socket user rooms \(`user:<id>`\)) Tj
+T* (- Soft behavior for history hide via `hidden_at`) Tj
+T* () Tj
+T* (#### Message Controller \(`backend/src/controllers/message/messageController.js`\)) Tj
+T* (Main methods:) Tj
+T* (- `listMessagesByRoom`) Tj
+T* (- `sendMessage`) Tj
+T* (- `editMessage`) Tj
+T* (- `deleteMessage`) Tj
+T* (- `markMessageSeen`) Tj
+T* (- `clearMessagesByRoom`) Tj
+T* () Tj
+T* (Implementation methods used:) Tj
+T* (- Membership assertion before each room action) Tj
+T* (- Per-user message status in `message_status`) Tj
+T* (- Transactional send flow: insert message + statuses) Tj
+T* (- Socket emits: `message:new`, `message:updated`, `message:deleted`, `message:status`) Tj
+T* () Tj
+T* (#### User Controller \(`backend/src/controllers/user/userController.js`\)) Tj
+T* (Main methods:) Tj
+T* (- `searchUsers`) Tj
+T* (- `listConnectedUsers`) Tj
+T* (- `setGender`) Tj
+T* () Tj
+T* (Implementation methods used:) Tj
+T* (- Search via `ILIKE`) Tj
+T* (- Gender update is one-time lock \(`WHERE gender IS NULL`\)) Tj
+T* () Tj
+T* (### 4.6 Service Layer) Tj
+T* () Tj
+T* (#### Socket Server \(`backend/src/services/socket/socketServer.js`\)) Tj
+T* (Core behavior:) Tj
+T* (- Socket auth middleware verifies token + active DB session) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 1675 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(- On connect: joins personal room and approved chat rooms) Tj
+T* (- Handles:) Tj
+T* (  - `typing:update`) Tj
+T* (  - `room:join`) Tj
+T* (  - `room:leave`) Tj
+T* (  - `message:seen`) Tj
+T* (  - `disconnect`) Tj
+T* () Tj
+T* (#### Email Service \(`backend/src/services/email/emailService.js`\)) Tj
+T* (Core behavior:) Tj
+T* (- Sends verification email via Resend API) Tj
+T* (- Falls back to console-mode if email config missing) Tj
+T* () Tj
+T* (## 5. Frontend Module-by-Module Explanation) Tj
+T* () Tj
+T* (### 5.1 Bootstrapping and Providers) Tj
+T* () Tj
+T* (#### `frontend/src/main.jsx`) Tj
+T* (- React root + BrowserRouter + AppProviders) Tj
+T* () Tj
+T* (#### `frontend/src/app/providers/AppProviders.jsx`) Tj
+T* (- Composes `AuthProvider` then `SocketProvider`) Tj
+T* () Tj
+T* (#### `frontend/src/providers/AuthProvider.jsx`) Tj
+T* (- Hydrates auth state from localStorage) Tj
+T* (- Calls `meApi\(\)` after hydration to validate server session and refresh profile) Tj
+T* () Tj
+T* (#### `frontend/src/providers/SocketProvider.jsx`) Tj
+T* (- Connects socket when token is present) Tj
+T* (- Registers socket event listeners) Tj
+T* (- Syncs events into Zustand chat store) Tj
+T* () Tj
+T* (### 5.2 Routing and Guards) Tj
+T* () Tj
+T* (#### `frontend/src/routes/index.jsx`) Tj
+T* (Public routes:) Tj
+T* (- `/` landing page) Tj
+T* (- `/login`) Tj
+T* (- `/signup`) Tj
+T* (- `/verify-email`) Tj
+T* () Tj
+T* (Protected routes:) Tj
+T* (- `/onboarding/gender`) Tj
+T* (- `/chat`) Tj
+T* (- `/profile`) Tj
+T* () Tj
+T* (Guards:) Tj
+T* (- `PublicOnlyRoute`) Tj
+T* (- `ProtectedRoute`) Tj
+T* (- `GenderSetupOnlyRoute`) Tj
+T* (- `RequireGenderRoute`) Tj
+T* () Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 1372 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(### 5.3 State Management) Tj
+T* () Tj
+T* (#### `frontend/src/store/authStore.js`) Tj
+T* (State:) Tj
+T* (- user) Tj
+T* (- token) Tj
+T* (- isAuthenticated) Tj
+T* (- hydrated) Tj
+T* () Tj
+T* (Methods:) Tj
+T* (- hydrate from storage) Tj
+T* (- login/logout) Tj
+T* (- update profile) Tj
+T* () Tj
+T* (#### `frontend/src/store/chatStore.js`) Tj
+T* (State:) Tj
+T* (- chats) Tj
+T* (- `messagesByChat`) Tj
+T* (- active chat id) Tj
+T* (- typing indicators) Tj
+T* (- notifications) Tj
+T* () Tj
+T* (Methods:) Tj
+T* (- upsert chat/message) Tj
+T* (- message status updates) Tj
+T* (- typing updates) Tj
+T* (- notification queue) Tj
+T* () Tj
+T* (### 5.4 Feature Modules) Tj
+T* () Tj
+T* (#### Auth Feature) Tj
+T* (Files:) Tj
+T* (- `features/auth/pages/*`) Tj
+T* (- `features/auth/hooks/useAuthActions.js`) Tj
+T* (- `features/auth/api/authApi.js`) Tj
+T* (- `features/auth/components/*`) Tj
+T* () Tj
+T* (Capabilities:) Tj
+T* (- Login/signup) Tj
+T* (- Google popup sign-in) Tj
+T* (- Email verification page + resend) Tj
+T* (- Conditional redirect when login fails with `requiresEmailVerification`) Tj
+T* () Tj
+T* (#### Chat Feature) Tj
+T* (Files:) Tj
+T* (- `features/chat/pages/ChatPage.jsx`) Tj
+T* (- `features/chat/api/chatApi.js`) Tj
+T* () Tj
+T* (Capabilities:) Tj
+T* (- Load rooms, groups, users) Tj
+T* (- Create private/group chat) Tj
+T* (- Join groups) Tj
+ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 13 0 R >>
+endobj
+15 0 obj
+<< /Length 1567 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(- Hide room history) Tj
+T* (- Clear chat) Tj
+T* () Tj
+T* (#### Message Feature) Tj
+T* (Files:) Tj
+T* (- `features/messages/api/messageApi.js`) Tj
+T* (- `components/messages/*`) Tj
+T* () Tj
+T* (Capabilities:) Tj
+T* (- Send/edit/delete messages) Tj
+T* (- Message type tags \(TEXT/IMAGE/FILE/VOICE\)) Tj
+T* (- Seen updates) Tj
+T* (- Ctrl/Cmd+Enter send behavior) Tj
+T* () Tj
+T* (#### Search Feature) Tj
+T* (Files:) Tj
+T* (- `components/search/UserSearch.jsx`) Tj
+T* (- `features/search/api/searchApi.js`) Tj
+T* () Tj
+T* (Capabilities:) Tj
+T* (- Search users) Tj
+T* (- Search loaded local message text) Tj
+T* (- Start private room directly from search results) Tj
+T* () Tj
+T* (#### Notifications Feature) Tj
+T* (Files:) Tj
+T* (- `components/notifications/*`) Tj
+T* () Tj
+T* (Capabilities:) Tj
+T* (- Toast stack) Tj
+T* (- Alert panel with grouped message notifications) Tj
+T* (- Request panel for private chat approvals/rejections) Tj
+T* () Tj
+T* (### 5.5 UI and Layout) Tj
+T* () Tj
+T* (- `components/layout/MainLayout.jsx` handles top navigation and user actions) Tj
+T* (- `components/layout/AuthLayout.jsx` handles auth page split layout and mobile promo) Tj
+T* (- `features/auth/pages/LandingPage.jsx` provides animated marketing entry page) Tj
+T* () Tj
+T* (## 6. Data Model and Database Design) Tj
+T* () Tj
+T* (File: `backend/Chat_App.sql`) Tj
+T* () Tj
+T* (Core tables:) Tj
+T* (- `users`) Tj
+T* (- `rooms`) Tj
+T* (- `room_members`) Tj
+T* (- `messages`) Tj
+T* (- `message_status`) Tj
+T* (- `user_sessions`) Tj
+T* (- `media`) Tj
+T* () Tj
+ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 15 0 R >>
+endobj
+17 0 obj
+<< /Length 1924 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(Notable columns:) Tj
+T* (- `users.email_verified`) Tj
+T* (- `users.email_verification_token_hash`) Tj
+T* (- `users.email_verification_expires_at`) Tj
+T* () Tj
+T* (Design methods used:) Tj
+T* (- UUID PKs for distributed-safe identifiers) Tj
+T* (- Join table for room membership with role and status) Tj
+T* (- Separate table for per-user message state) Tj
+T* (- Session table to allow token invalidation/logout) Tj
+T* () Tj
+T* (## 7. Feature-to-Implementation Mapping) Tj
+T* () Tj
+T* (### 7.1 JWT + Session Authentication) Tj
+T* (Methods used:) Tj
+T* (- JWT signing \(`signToken`\)) Tj
+T* (- DB session persistence \(`user_sessions`\)) Tj
+T* (- Middleware validation by token + session row) Tj
+T* () Tj
+T* (Outcome:) Tj
+T* (- Tokens can be revoked on logout) Tj
+T* (- Socket auth and API auth share same session validity rules) Tj
+T* () Tj
+T* (### 7.2 Google Sign-In) Tj
+T* (Methods used:) Tj
+T* (- Browser receives credential via Google JS SDK) Tj
+T* (- Backend validates with Google tokeninfo endpoint) Tj
+T* (- Checks issuer, audience, expiration, verified email) Tj
+T* () Tj
+T* (Outcome:) Tj
+T* (- New user auto-created or existing user signed in) Tj
+T* (- Google users marked email-verified by default) Tj
+T* () Tj
+T* (### 7.3 Email Verification Flow) Tj
+T* (Methods used:) Tj
+T* (- Secure random token generation) Tj
+T* (- SHA-256 token hashing before DB store) Tj
+T* (- Expiry check with TTL minutes) Tj
+T* (- Verification and resend endpoints) Tj
+T* (- Resend email provider integration) Tj
+T* () Tj
+T* (Outcome:) Tj
+T* (- Password login is blocked until verified) Tj
+T* (- Verification links point to frontend verify page) Tj
+T* () Tj
+T* (### 7.4 Private Request-Based Direct Chat) Tj
+T* (Methods used:) Tj
+T* (- Room member statuses \(`PENDING`, `APPROVED`, `REJECTED`\)) Tj
+T* (- Request/response APIs) Tj
+T* (- Socket notifications to target/requester) Tj
+T* () Tj
+T* (Outcome:) Tj
+ET
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 17 0 R >>
+endobj
+19 0 obj
+<< /Length 2085 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(- Controlled access for private 1-to-1 chats) Tj
+T* () Tj
+T* (### 7.5 Group Chat Management) Tj
+T* (Methods used:) Tj
+T* (- Public group rooms with member rows) Tj
+T* (- Admin-only moderation operations) Tj
+T* (- Join flow with membership updates) Tj
+T* () Tj
+T* (Outcome:) Tj
+T* (- Open community chat model with server-side permission checks) Tj
+T* () Tj
+T* (### 7.6 Realtime Messaging and Presence) Tj
+T* (Methods used:) Tj
+T* (- Socket rooms for user and chat channels) Tj
+T* (- Typing broadcast events) Tj
+T* (- Seen acknowledgements and status updates) Tj
+T* (- Online/offline presence updates on connect/disconnect) Tj
+T* () Tj
+T* (Outcome:) Tj
+T* (- Live chat UX with low-latency updates) Tj
+T* () Tj
+T* (### 7.7 Notification and Unread Strategy) Tj
+T* (Methods used:) Tj
+T* (- Server pushes `notification:new`) Tj
+T* (- Client groups notifications by room/sender) Tj
+T* (- Unread count derived from in-memory notifications) Tj
+T* () Tj
+T* (Outcome:) Tj
+T* (- WhatsApp-like unread cues in sidebar and alert panel) Tj
+T* () Tj
+T* (### 7.8 Responsive UX and Marketing Entry) Tj
+T* (Methods used:) Tj
+T* (- CSS media queries for auth/chat pages) Tj
+T* (- Mobile-aware ordering of chat sections) Tj
+T* (- Dedicated animated landing page at `/`) Tj
+T* () Tj
+T* (Outcome:) Tj
+T* (- Better mobile readability and a stronger first impression) Tj
+T* () Tj
+T* (## 8. Important Code Snippets \(High-Impact Features\)) Tj
+T* () Tj
+T* (### Snippet 1: Email verification token creation \(backend\)) Tj
+T* (File: `backend/src/controllers/auth/authController.js`) Tj
+T* () Tj
+T* (```js) Tj
+T* (function createEmailVerificationToken\(\) {) Tj
+T* (  const token = crypto.randomBytes\(32\).toString\("hex"\);) Tj
+T* (  const tokenHash = crypto.createHash\("sha256"\).update\(token\).digest\("hex"\);) Tj
+T* (  const ttlMinutes = Math.max\(MIN_EMAIL_VERIFICATION_MINUTES, ) Tj
+T* (  Number\(EMAIL_VERIFICATION_TTL_MINUTES\) || 0\);) Tj
+T* (  const expiresAt = new Date\(Date.now\(\) + ttlMinutes * 60 * 1000\);) Tj
+T* (  return { token, tokenHash, expiresAt };) Tj
+ET
+endstream
+endobj
+20 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 19 0 R >>
+endobj
+21 0 obj
+<< /Length 1936 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(}) Tj
+T* (```) Tj
+T* () Tj
+T* (### Snippet 2: Block login until email is verified) Tj
+T* (File: `backend/src/controllers/auth/authController.js`) Tj
+T* () Tj
+T* (```js) Tj
+T* (if \(!user.email_verified\) {) Tj
+T* (  return res.status\(403\).json\({) Tj
+T* (    message: "Email is not verified. Please verify your email before login.",) Tj
+T* (    requiresEmailVerification: true,) Tj
+T* (    email: user.email,) Tj
+T* (  }\);) Tj
+T* (}) Tj
+T* (```) Tj
+T* () Tj
+T* (### Snippet 3: Google token verification hard checks) Tj
+T* (File: `backend/src/controllers/auth/authController.js`) Tj
+T* () Tj
+T* (```js) Tj
+T* (if \(!GOOGLE_ISSUERS.has\(issuer\)\) {) Tj
+T* (  const error = new Error\("Invalid Google token issuer"\);) Tj
+T* (  error.status = 401;) Tj
+T* (  throw error;) Tj
+T* (}) Tj
+T* (if \(allowedAudiences.length > 0 && !allowedAudiences.includes\(audience\)\) {) Tj
+T* (  const error = new Error\("Google token audience mismatch"\);) Tj
+T* (  error.status = 401;) Tj
+T* (  throw error;) Tj
+T* (}) Tj
+T* (```) Tj
+T* () Tj
+T* (### Snippet 4: Transactional message send + status fanout) Tj
+T* (File: `backend/src/controllers/message/messageController.js`) Tj
+T* () Tj
+T* (```js) Tj
+T* (const messageResult = await client.query\() Tj
+T* (  `INSERT INTO messages \(room_id, sender_id, encrypted_content, message_type\)) Tj
+T* (   VALUES \($1, $2, $3, $4\)) Tj
+T* (   RETURNING message_id, room_id, sender_id, encrypted_content, message_type, is_edited, ) Tj
+T* (   is_deleted, created_at`,) Tj
+T* (  [roomId, req.user.user_id, text.trim\(\), type]) Tj
+T* (\);) Tj
+T* (// then insert message_status for all approved room members) Tj
+T* (```) Tj
+T* () Tj
+T* (### Snippet 5: Socket auth middleware uses DB session check) Tj
+T* (File: `backend/src/services/socket/socketServer.js`) Tj
+T* () Tj
+T* (```js) Tj
+T* (io.use\(async \(socket, next\) => {) Tj
+T* (  const token = socket.handshake.auth?.token;) Tj
+ET
+endstream
+endobj
+22 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 21 0 R >>
+endobj
+23 0 obj
+<< /Length 1883 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(  const decoded = verifyToken\(token\);) Tj
+T* (  const userResult = await query\() Tj
+T* (    `SELECT u.user_id FROM users u) Tj
+T* (     JOIN user_sessions s ON s.user_id = u.user_id) Tj
+T* (     WHERE u.user_id = $1 AND s.jwt_token = $2 AND s.is_valid = TRUE AND s.expires_at > NOW\(\)`) Tj
+T* (  \);) Tj
+T* (  if \(userResult.rowCount === 0\) return next\(new Error\("Unauthorized"\)\);) Tj
+T* (  next\(\);) Tj
+T* (}\);) Tj
+T* (```) Tj
+T* () Tj
+T* (### Snippet 6: Frontend handles unverified-login redirect) Tj
+T* (File: `frontend/src/features/auth/hooks/useAuthActions.js`) Tj
+T* () Tj
+T* (```js) Tj
+T* (const requiresEmailVerification = Boolean\(err?.response?.data?.requiresEmailVerification\);) Tj
+T* (if \(requiresEmailVerification\) {) Tj
+T* (  const email = String\(err?.response?.data?.email || payload?.email || ""\).trim\(\);) Tj
+T* (  navigate\(`/verify-email?email=${encodeURIComponent\(email\)}`\);) Tj
+T* (  return;) Tj
+T* (}) Tj
+T* (```) Tj
+T* () Tj
+T* (### Snippet 7: Chat store message upsert for realtime sync) Tj
+T* (File: `frontend/src/store/chatStore.js`) Tj
+T* () Tj
+T* (```js) Tj
+T* (upsertMessage: \(message\) => {) Tj
+T* (  set\(\(state\) => {) Tj
+T* (    const existing = state.messagesByChat[message.chatId] || [];) Tj
+T* (    return {) Tj
+T* (      messagesByChat: {) Tj
+T* (        ...state.messagesByChat,) Tj
+T* (        [message.chatId]: upsertById\(existing, message\),) Tj
+T* (      },) Tj
+T* (    };) Tj
+T* (  }\);) Tj
+T* (},) Tj
+T* (```) Tj
+T* () Tj
+T* (### Snippet 8: Composer Enter key behavior fix) Tj
+T* (File: `frontend/src/components/messages/MessageComposer.jsx`) Tj
+T* () Tj
+T* (```js) Tj
+T* (if \(event.key === "Enter" && \(event.ctrlKey || event.metaKey\)\) {) Tj
+T* (  event.preventDefault\(\);) Tj
+T* (  handleSend\(\);) Tj
+T* (}) Tj
+T* (```) Tj
+T* () Tj
+T* (## 9. API Contract Summary) Tj
+T* () Tj
+ET
+endstream
+endobj
+24 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 23 0 R >>
+endobj
+25 0 obj
+<< /Length 2035 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(Auth:) Tj
+T* (- `POST /api/v1/auth/signup`) Tj
+T* (- `POST /api/v1/auth/login`) Tj
+T* (- `POST /api/v1/auth/google`) Tj
+T* (- `POST /api/v1/auth/verify-email`) Tj
+T* (- `POST /api/v1/auth/resend-verification`) Tj
+T* (- `GET /api/v1/auth/me`) Tj
+T* (- `POST /api/v1/auth/logout`) Tj
+T* () Tj
+T* (Users:) Tj
+T* (- `GET /api/v1/users/search`) Tj
+T* (- `GET /api/v1/users/connected`) Tj
+T* (- `PATCH /api/v1/users/gender`) Tj
+T* () Tj
+T* (Rooms:) Tj
+T* (- `GET /api/v1/rooms`) Tj
+T* (- `GET /api/v1/rooms/groups/public`) Tj
+T* (- `POST /api/v1/rooms/private`) Tj
+T* (- `GET /api/v1/rooms/private/requests`) Tj
+T* (- `PATCH /api/v1/rooms/private/requests/:roomId`) Tj
+T* (- `POST /api/v1/rooms/group`) Tj
+T* (- `PATCH /api/v1/rooms/:roomId/hide`) Tj
+T* (- `POST /api/v1/rooms/:roomId/join-request`) Tj
+T* (- `GET /api/v1/rooms/group/requests`) Tj
+T* (- `PATCH /api/v1/rooms/group/:roomId/requests/:userId`) Tj
+T* (- `DELETE /api/v1/rooms/group/:roomId`) Tj
+T* () Tj
+T* (Messages:) Tj
+T* (- `GET /api/v1/messages/room/:roomId`) Tj
+T* (- `PATCH /api/v1/messages/room/:roomId/clear`) Tj
+T* (- `POST /api/v1/messages`) Tj
+T* (- `PATCH /api/v1/messages/:messageId`) Tj
+T* (- `DELETE /api/v1/messages/:messageId`) Tj
+T* (- `PATCH /api/v1/messages/:messageId/seen`) Tj
+T* () Tj
+T* (## 10. Security Notes and Current Gaps) Tj
+T* () Tj
+T* (### Implemented) Tj
+T* (- Password hashing) Tj
+T* (- JWT signature checks) Tj
+T* (- DB-backed session revocation) Tj
+T* (- Google token issuer/audience validation) Tj
+T* (- Email token hashing before storage) Tj
+T* (- Membership checks before room/message actions) Tj
+T* () Tj
+T* (### Improvement opportunities) Tj
+T* (- Message payload is stored in `encrypted_content` column but currently uses plain text from API ) Tj
+T* (input) Tj
+T* (- No explicit rate limiting middleware yet) Tj
+T* (- No centralized request validation library \(e.g., Zod/Joi\) yet) Tj
+T* (- `.env` loading currently uses `override: true` and can override platform vars in some ) Tj
+T* (deployments) Tj
+ET
+endstream
+endobj
+26 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 25 0 R >>
+endobj
+27 0 obj
+<< /Length 2304 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+() Tj
+T* (## 11. Deployment Notes) Tj
+T* () Tj
+T* (Frontend env:) Tj
+T* (- `VITE_API_BASE_URL`) Tj
+T* (- `VITE_SOCKET_URL`) Tj
+T* (- `VITE_GOOGLE_CLIENT_ID`) Tj
+T* () Tj
+T* (Backend env:) Tj
+T* (- DB variables) Tj
+T* (- `CLIENT_ORIGIN`) Tj
+T* (- `JWT_SECRET`) Tj
+T* (- `GOOGLE_CLIENT_ID`) Tj
+T* (- `APP_BASE_URL`) Tj
+T* (- `EMAIL_VERIFICATION_TTL_MINUTES`) Tj
+T* (- `RESEND_API_KEY`) Tj
+T* (- `EMAIL_FROM`) Tj
+T* () Tj
+T* (Recommended production values:) Tj
+T* (- `CLIENT_ORIGIN` include all frontend origins \(comma-separated\)) Tj
+T* (- `APP_BASE_URL` should point to frontend domain with verify page) Tj
+T* () Tj
+T* (## 12. Common Interview Questions with Model Answers) Tj
+T* () Tj
+T* (### Q1. Why use both JWT verification and session table checks?) Tj
+T* (A: JWT validates signature and expiry, but session-table checks allow server-side revocation and ) Tj
+T* (logout invalidation. This combines stateless auth speed with operational control.) Tj
+T* () Tj
+T* (### Q2. Why is `message_status` separated from `messages`?) Tj
+T* (A: Read/seen state is per user, not per message globally. A join table supports independent status) Tj
+T* ( for each participant.) Tj
+T* () Tj
+T* (### Q3. How do you prevent unauthorized socket connections?) Tj
+T* (A: Socket middleware verifies JWT and checks active, unexpired session row in `user_sessions` ) Tj
+T* (before attaching `socket.user`.) Tj
+T* () Tj
+T* (### Q4. Why hash email verification tokens before storing?) Tj
+T* (A: If DB leaks, raw tokens cannot be reused. Verification compares hash\(token\) to stored hash.) Tj
+T* () Tj
+T* (### Q5. How is private chat approval modeled?) Tj
+T* (A: Through `room_members.status` transitions \(`PENDING` to `APPROVED/REJECTED`\) in PRIVATE rooms.) Tj
+T* () Tj
+T* (### Q6. What ensures only room members can read/send messages?) Tj
+T* (A: `assertMembership\(roomId, userId\)` gate in message controller methods.) Tj
+T* () Tj
+T* (### Q7. Why use Socket.IO rooms?) Tj
+T* (A: Efficient scoped broadcast to specific chat participants \(`roomId`\) and personal channels ) Tj
+T* (\(`user:<id>`\).) Tj
+T* () Tj
+T* (### Q8. How do you handle unread counts on client?) Tj
+T* (A: Notifications are stored in Zustand; counts are derived by grouping message notifications by ) Tj
+T* (room id.) Tj
+ET
+endstream
+endobj
+28 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 27 0 R >>
+endobj
+29 0 obj
+<< /Length 2668 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+() Tj
+T* (### Q9. How do you keep auth state after refresh?) Tj
+T* (A: `authStore` hydrates from localStorage via `authStorage`, then AuthProvider revalidates with ) Tj
+T* (`meApi`.) Tj
+T* () Tj
+T* (### Q10. Why use Zustand instead of Redux here?) Tj
+T* (A: Smaller API surface, less boilerplate, and sufficient for medium-complexity chat state.) Tj
+T* () Tj
+T* (### Q11. What are the tradeoffs of storing notifications only in memory?) Tj
+T* (A: Fast and simple but not persistent across full refresh or multi-device sessions.) Tj
+T* () Tj
+T* (### Q12. How do you avoid duplicate usernames for Google users?) Tj
+T* (A: `ensureUniqueUsername` loops with random suffix until an unused value is found.) Tj
+T* () Tj
+T* (### Q13. How are CORS and Socket origins controlled?) Tj
+T* (A: Backend parses `CLIENT_ORIGIN` and uses same origin list in Express CORS and Socket.IO CORS ) Tj
+T* (config.) Tj
+T* () Tj
+T* (### Q14. How does the app support group membership updates in realtime?) Tj
+T* (A: Server emits `room:available` to specific users after approval or join.) Tj
+T* () Tj
+T* (### Q15. What would you scale first for high traffic?) Tj
+T* (A: Add Redis adapter for Socket.IO, add DB indexes for high-frequency queries, and introduce ) Tj
+T* (caching for room lists.) Tj
+T* () Tj
+T* (### Q16. How is one-time gender setup enforced?) Tj
+T* (A: SQL update includes `WHERE gender IS NULL`, preventing further changes.) Tj
+T* () Tj
+T* (### Q17. Why keep `hidden_at` and `cleared_at` in `room_members`?) Tj
+T* (A: These are user-room scoped behaviors, not room-global properties.) Tj
+T* () Tj
+T* (### Q18. How does the app avoid stale socket listeners?) Tj
+T* (A: `SocketProvider` registers handlers in effect and cleans them up in return function.) Tj
+T* () Tj
+T* (### Q19. What are failure modes in verification email flow?) Tj
+T* (A: Missing provider config, API provider errors, expired tokens, invalid tokens, or mismatched ) Tj
+T* (`APP_BASE_URL`.) Tj
+T* () Tj
+T* (### Q20. How would you harden this project for enterprise use?) Tj
+T* (A: Add schema migrations, typed validation, rate limits, audit logs, encryption-at-rest strategy, ) Tj
+T* (and integration tests.) Tj
+T* () Tj
+T* (## 13. Suggested Next Enhancements) Tj
+T* () Tj
+T* (1. Implement true end-to-end encryption or server-side encryption wrapper for message payloads.) Tj
+T* (2. Add migration tooling \(e.g., Knex/Prisma migrations\).) Tj
+T* (3. Add unit/integration tests for auth and message workflows.) Tj
+T* (4. Add rate limiting and login attempt throttling.) Tj
+T* (5. Add persisted notification center and read receipts pagination.) Tj
+T* () Tj
+T* (---) Tj
+T* () Tj
+ET
+endstream
+endobj
+30 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 29 0 R >>
+endobj
+31 0 obj
+<< /Length 53 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+46 738 Td
+(End of handbook.) Tj
+ET
+endstream
+endobj
+32 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 33 0 R >> >> /Contents 31 0 R >>
+endobj
+33 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 34
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000218 00000 n 
+0000002001 00000 n 
+0000002128 00000 n 
+0000003951 00000 n 
+0000004078 00000 n 
+0000005874 00000 n 
+0000006001 00000 n 
+0000008119 00000 n 
+0000008247 00000 n 
+0000009975 00000 n 
+0000010104 00000 n 
+0000011529 00000 n 
+0000011658 00000 n 
+0000013278 00000 n 
+0000013407 00000 n 
+0000015384 00000 n 
+0000015513 00000 n 
+0000017651 00000 n 
+0000017780 00000 n 
+0000019769 00000 n 
+0000019898 00000 n 
+0000021834 00000 n 
+0000021963 00000 n 
+0000024051 00000 n 
+0000024180 00000 n 
+0000026537 00000 n 
+0000026666 00000 n 
+0000029387 00000 n 
+0000029516 00000 n 
+0000029620 00000 n 
+0000029749 00000 n 
+trailer
+<< /Size 34 /Root 1 0 R >>
+startxref
+29820
+%%EOF
