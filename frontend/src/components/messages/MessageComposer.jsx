@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { createAttachmentPayload } from "../../features/messages/utils/attachmentPayload";
 
-const QUICK_EMOJIS = [
+const ALL_EMOJIS = [
   "\u{1F600}",
   "\u{1F602}",
   "\u{1F60D}",
@@ -10,9 +10,31 @@ const QUICK_EMOJIS = [
   "\u{1F389}",
   "\u{1F525}",
   "\u{2764}\u{FE0F}",
+  "\u{1F60A}",
+  "\u{1F618}",
+  "\u{1F62E}",
+  "\u{1F631}",
+  "\u{1F917}",
+  "\u{1F44F}",
+  "\u{1F4AA}",
+  "\u{1F680}",
+  "\u{1F4AF}",
+  "\u{1F973}",
+  "\u{1F92A}",
+  "\u{1F61B}",
+  "\u{1F60E}",
+  "\u{1F44C}",
+  "\u{1F44B}",
+  "\u{1F49C}",
+  "\u{1F49A}",
+  "\u{1F497}",
+  "\u{1F48E}",
+  "\u{1F496}",
+  "\u{1F31F}",
 ];
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const EMOJI_BATCH_SIZE = 10;
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -26,11 +48,17 @@ function readFileAsDataUrl(file) {
 export function MessageComposer({ onSend, onTyping }) {
   const [text, setText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isEmojiOpen, setIsEmojiOpen] = useState(false);
+  const [emojiVisibleCount, setEmojiVisibleCount] = useState(EMOJI_BATCH_SIZE);
   const [attachmentError, setAttachmentError] = useState("");
   const imageInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
   const canSend = useMemo(() => text.trim().length > 0 && !isUploading, [text, isUploading]);
+  const visibleEmojis = useMemo(
+    () => ALL_EMOJIS.slice(0, emojiVisibleCount),
+    [emojiVisibleCount]
+  );
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -106,7 +134,7 @@ export function MessageComposer({ onSend, onTyping }) {
       {attachmentError ? <p className="error-text">{attachmentError}</p> : null}
       {isUploading ? <p className="info-text">Uploading attachment...</p> : null}
 
-      <div className="media-row">
+      <div className="composer-tools-row">
         <button
           className="media-btn"
           onClick={() => imageInputRef.current?.click()}
@@ -125,6 +153,23 @@ export function MessageComposer({ onSend, onTyping }) {
         >
           {"\u{1F4CE}"}
         </button>
+        <button
+          className={`media-btn emoji-toggle-btn ${isEmojiOpen ? "active" : ""}`.trim()}
+          onClick={() => {
+            setIsEmojiOpen((prev) => {
+              const next = !prev;
+              if (next) {
+                setEmojiVisibleCount(EMOJI_BATCH_SIZE);
+              }
+              return next;
+            });
+          }}
+          type="button"
+          title="Open emojis"
+          disabled={isUploading}
+        >
+          {"\u{1F642}"}
+        </button>
         <input
           ref={imageInputRef}
           type="file"
@@ -140,18 +185,37 @@ export function MessageComposer({ onSend, onTyping }) {
         />
       </div>
 
-      <div className="emoji-row">
-        {QUICK_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            className="emoji-btn"
-            onClick={() => setText((prev) => `${prev}${emoji}`)}
-            type="button"
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
+      {isEmojiOpen ? (
+        <div className="emoji-picker-panel">
+          <div className="emoji-grid">
+            {visibleEmojis.map((emoji) => (
+              <button
+                key={emoji}
+                className="emoji-btn"
+                onClick={() => setText((prev) => `${prev}${emoji}`)}
+                type="button"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          {emojiVisibleCount < ALL_EMOJIS.length ? (
+            <button
+              className="emoji-load-more-btn"
+              onClick={() =>
+                setEmojiVisibleCount((prev) =>
+                  Math.min(prev + EMOJI_BATCH_SIZE, ALL_EMOJIS.length)
+                )
+              }
+              type="button"
+              title="Load more emojis"
+            >
+              ...
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="composer-row">
         <textarea
           className="composer-input"

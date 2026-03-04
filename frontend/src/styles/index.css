@@ -1235,6 +1235,18 @@ a {
   border-color: #38bdf8;
 }
 
+.main-shell.theme-dark .emoji-toggle-btn.active {
+  background: #1e3a8a;
+  border-color: #38bdf8;
+  color: #dbeafe;
+}
+
+.main-shell.theme-dark .emoji-load-more-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #67e8f9;
+}
+
 .main-shell.theme-dark .typing-indicator {
   background: rgba(14, 116, 144, 0.3);
   color: #67e8f9;
@@ -1764,7 +1776,13 @@ a {
 .message-actions {
   margin-top: 6px;
   display: flex;
-  gap: 8px;
+  gap: 6px;
+}
+
+.message-actions .link-btn {
+  font-size: 0.76rem;
+  line-height: 1.1;
+  padding: 0 2px;
 }
 
 .message-row.own .message-actions .link-btn {
@@ -1783,25 +1801,25 @@ a {
   gap: 10px;
 }
 
-.media-row {
+.composer-tools-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .media-btn {
   border: 1px solid #cbd5e1;
   background: #f8fafc;
   border-radius: 10px;
-  width: 40px;
-  height: 36px;
+  width: 34px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   cursor: pointer;
-  font-size: 1.02rem;
+  font-size: 0.88rem;
   transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
 }
 
@@ -1813,6 +1831,35 @@ a {
 
 .hidden-input {
   display: none;
+}
+
+.emoji-toggle-btn.active {
+  border-color: #38bdf8;
+  background: #e0f2fe;
+}
+
+.emoji-picker-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, auto));
+  gap: 7px;
+}
+
+.emoji-load-more-btn {
+  width: 34px;
+  height: 28px;
+  border: 1px solid #dbeafe;
+  background: #ffffff;
+  border-radius: 999px;
+  color: #0f766e;
+  font: inherit;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .composer-row {
@@ -1828,17 +1875,16 @@ a {
   overflow-y: auto;
 }
 
-.emoji-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .emoji-btn {
   border: 1px solid #dbeafe;
   background: #ffffff;
-  border-radius: 10px;
-  padding: 6px 8px;
+  border-radius: 9px;
+  width: 32px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   cursor: pointer;
   transition: transform 120ms ease, background-color 120ms ease;
 }
@@ -2700,6 +2746,10 @@ a {
     width: 100%;
   }
 
+  .emoji-grid {
+    grid-template-columns: repeat(7, minmax(0, auto));
+  }
+
   .search-results {
     position: static;
     margin-top: 8px;
@@ -2847,5 +2897,9 @@ a {
 
   .request-actions {
     flex-wrap: wrap;
+  }
+
+  .emoji-grid {
+    grid-template-columns: repeat(6, minmax(0, auto));
   }
 }
