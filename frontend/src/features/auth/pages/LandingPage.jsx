@@ -4,17 +4,29 @@ import { BrandLogo } from "../../../components/common/BrandLogo";
 
 const FEATURE_POINTS = [
   "Discover and connect with random users instantly.",
+  "One-click Random Connect with auto-matching and no manual approval.",
   "Secure private 1-to-1 conversations with clean access control.",
   "Public group chats for open discussions and communities.",
+  "Share images and files directly inside chat conversations.",
   "Live typing, seen status, and unread message indicators.",
-  "Google login and email verification based signup flow.",
+  "Google login, email verification, and password reset through email.",
+  "Dark and light chat themes with quick toggle in header.",
 ];
 
 const PRIVACY_POINTS = [
   "Private 1-to-1 rooms use authenticated access and controlled membership.",
   "Google and email verification reduce fake-account abuse and spam joins.",
   "User sessions are token-based with secure server-side validation.",
+  "Password reset links are time-limited and invalidate old sessions.",
   "Profile-level controls keep your conversations and identity protected.",
+];
+
+const UPDATE_POINTS = [
+  "Random chat matchmaking now creates an instant private room when two users connect.",
+  "Image and file sharing is now enabled in message composer and chat view.",
+  "New dark mode and light mode support across the complete chat interface.",
+  "Header now includes a compact corner menu for profile, chat, and logout actions.",
+  "Request and alert buttons now use clearer notification styling and behavior.",
 ];
 
 const FAQ_ITEMS = [
@@ -26,17 +38,17 @@ const FAQ_ITEMS = [
   {
     question: "Can I chat with random people?",
     answer:
-      "Yes. You can discover connected users quickly and send private chat requests to start conversations in seconds.",
+      "Yes. Use the Random Connect button and if another online user also connects, both are matched instantly in a private room.",
   },
   {
     question: "How do group chats work?",
     answer:
-      "You can create public groups, invite members, and chat in real time with delivery updates and live presence.",
+      "You can create groups from the Groups section, join public groups, and chat in real time with delivery updates and live presence.",
   },
   {
-    question: "Can I use Google login and normal signup together?",
+    question: "Can I recover my password if I forget it?",
     answer:
-      "Yes. Google sign-in is supported, and email/password signup works with verification flow for safer account access.",
+      "Yes. Password recovery is available through email reset links, along with verified email and Google sign-in flows.",
   },
 ];
 
@@ -66,6 +78,9 @@ export function LandingPage() {
         <nav className="landing-nav-links" aria-label="Main navigation">
           <a href="#features" onClick={scrollToSection("features")}>
             Features
+          </a>
+          <a href="#updates" onClick={scrollToSection("updates")}>
+            Updates
           </a>
           <a href="#privacy" onClick={scrollToSection("privacy")}>
             Privacy
@@ -114,6 +129,19 @@ export function LandingPage() {
         <h2>Everything You Need For Modern Realtime Chat</h2>
         <ul>
           {FEATURE_POINTS.map((point) => (
+            <li key={point}>
+              <span className="landing-feature-dot" aria-hidden="true" />
+              <span>{point}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="landing-privacy-board" id="updates">
+        <p className="landing-section-kicker">What&apos;s New</p>
+        <h2>Latest Product Updates</h2>
+        <ul>
+          {UPDATE_POINTS.map((point) => (
             <li key={point}>
               <span className="landing-feature-dot" aria-hidden="true" />
               <span>{point}</span>
@@ -186,6 +214,9 @@ export function LandingPage() {
             <h4>Explore</h4>
             <a href="#features" onClick={scrollToSection("features")}>
               Features
+            </a>
+            <a href="#updates" onClick={scrollToSection("updates")}>
+              Updates
             </a>
             <a href="#privacy" onClick={scrollToSection("privacy")}>
               Privacy
