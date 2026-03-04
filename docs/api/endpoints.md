@@ -6,6 +6,8 @@
 - `POST /api/v1/auth/google`
 - `POST /api/v1/auth/verify-email`
 - `POST /api/v1/auth/resend-verification`
+- `POST /api/v1/auth/forgot-password`
+- `POST /api/v1/auth/reset-password`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
 
@@ -15,6 +17,8 @@
 ## Rooms
 - `GET /api/v1/rooms`
 - `POST /api/v1/rooms/private`
+- `POST /api/v1/rooms/random-connect`
+- `DELETE /api/v1/rooms/random-connect`
 - `POST /api/v1/rooms/group`
 - `DELETE /api/v1/rooms/group/:roomId`
 

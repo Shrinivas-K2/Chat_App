@@ -13,6 +13,8 @@ const {
   respondGroupJoinRequest,
   deleteGroupRoom,
   hideRoomHistory,
+  randomConnect,
+  cancelRandomConnect,
 } = require("../../controllers/chat/roomController");
 
 const roomRoutes = express.Router();
@@ -23,6 +25,8 @@ roomRoutes.post("/private", authMiddleware, asyncHandler(createPrivateRoom));
 roomRoutes.get("/private/requests", authMiddleware, asyncHandler(listPrivateRequests));
 roomRoutes.patch("/private/requests/:roomId", authMiddleware, asyncHandler(respondPrivateRequest));
 roomRoutes.post("/group", authMiddleware, asyncHandler(createGroupRoom));
+roomRoutes.post("/random-connect", authMiddleware, asyncHandler(randomConnect));
+roomRoutes.delete("/random-connect", authMiddleware, asyncHandler(cancelRandomConnect));
 roomRoutes.patch("/:roomId/hide", authMiddleware, asyncHandler(hideRoomHistory));
 roomRoutes.post("/:roomId/join-request", authMiddleware, asyncHandler(requestJoinGroup));
 roomRoutes.get("/group/requests", authMiddleware, asyncHandler(listGroupJoinRequests));

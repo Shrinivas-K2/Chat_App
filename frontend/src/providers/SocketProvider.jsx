@@ -50,15 +50,23 @@ export function SocketProvider({ children }) {
       }
     };
 
-    const onRoomAvailable = ({ room }) => {
+    const onRoomAvailable = ({ room, reason }) => {
       if (room) {
         upsertChat(room);
         pushNotification({
-          title: room.type === "direct" ? "Request accepted" : "Group joined",
+          title:
+            reason === "random_match"
+              ? "Random match connected"
+              : room.type === "direct"
+                ? "Request accepted"
+                : "Group joined",
           body:
-            room.type === "direct"
-              ? "Your request was accepted. You can chat now."
-              : `You can now chat in ${room.title}.`,
+            reason === "random_match"
+              ? "You are now connected with a random user."
+              : room.type === "direct"
+                ? "Your request was accepted. You can chat now."
+                : `You can now chat in ${room.title}.`,
+          type: reason === "random_match" ? "random_match" : "room_available",
           timestamp: new Date().toISOString(),
         });
       }

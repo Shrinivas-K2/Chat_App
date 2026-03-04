@@ -57,4 +57,55 @@ async function sendEmailVerificationEmail({ to, username, verificationUrl }) {
   return { queued: true, provider: "resend" };
 }
 
-module.exports = { sendEmailVerificationEmail };
+async function sendPasswordResetEmail({ to, username, resetUrl }) {
+  if (!RESEND_API_KEY || !EMAIL_FROM) {
+    console.warn(`[email:password-reset] Missing RESEND_API_KEY or EMAIL_FROM. Link for ${to}: ${resetUrl}`);
+    return { queued: false, provider: "console" };
+  }
+
+  const safeName = escapeHtml(username || to);
+  const safeUrl = escapeHtml(resetUrl);
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: EMAIL_FROM,
+      to: [to],
+      subject: "Reset your Chat App password",
+      html: `
+        <div style="font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#0f172a;max-width:560px;">
+          <h2 style="margin:0 0 12px;">Reset your password</h2>
+          <p style="margin:0 0 12px;">Hi ${safeName},</p>
+          <p style="margin:0 0 16px;">We received a request to reset your Chat App password.</p>
+          <p style="margin:0 0 20px;">
+            <a href="${safeUrl}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#0f766e;color:#fff;text-decoration:none;font-weight:600;">
+              Reset Password
+            </a>
+          </p>
+          <p style="margin:0 0 8px;font-size:13px;color:#475569;">
+            If the button does not work, open this link:
+          </p>
+          <p style="margin:0 0 6px;word-break:break-all;font-size:13px;color:#0f766e;">${safeUrl}</p>
+          <p style="margin:12px 0 0;font-size:13px;color:#64748b;">
+            If you did not request this, you can safely ignore this email.
+          </p>
+        </div>
+      `,
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    const error = new Error("Unable to send password reset email right now");
+    error.status = 502;
+    error.details = details;
+    throw error;
+  }
+
+  return { queued: true, provider: "resend" };
+}
+
+module.exports = { sendEmailVerificationEmail, sendPasswordResetEmail };

@@ -11,6 +11,7 @@ Frontend consumes backend APIs at `VITE_API_BASE_URL`, realtime socket at `VITE_
 
 ## Current implementation
 - JWT-based auth screens
+- Forgot/reset password flow through email link
 - Google sign-in on login and signup screens
 - Protected routing
 - Room list from backend

@@ -43,6 +43,7 @@ const env = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
   GOOGLE_CLIENT_ID: asString(process.env.GOOGLE_CLIENT_ID, ""),
   EMAIL_VERIFICATION_TTL_MINUTES: asNumber(process.env.EMAIL_VERIFICATION_TTL_MINUTES, 60 * 24),
+  PASSWORD_RESET_TTL_MINUTES: asNumber(process.env.PASSWORD_RESET_TTL_MINUTES, 30),
   RESEND_API_KEY: asString(process.env.RESEND_API_KEY, ""),
   EMAIL_FROM: asString(process.env.EMAIL_FROM, ""),
 };

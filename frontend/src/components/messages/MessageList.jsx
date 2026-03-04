@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { parseAttachmentPayload } from "../../features/messages/utils/attachmentPayload";
 
 function formatTime(timestamp) {
   return new Date(timestamp).toLocaleTimeString([], {
@@ -18,6 +19,14 @@ function messageTypeLabel(type) {
   const upper = String(type || "text").toUpperCase();
   if (upper === "TEXT") return "";
   return upper;
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes || 0);
+  if (!Number.isFinite(size) || size <= 0) return "";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function MessageList({
@@ -41,6 +50,9 @@ export function MessageList({
       <div className="message-list">
         {messages.map((message) => {
           const own = message.senderId === currentUserId;
+          const attachment = parseAttachmentPayload(message.text);
+          const messageType = String(message.messageType || "text").toLowerCase();
+          const canEdit = own && !message.deleted && !attachment && messageType === "text";
           return (
             <div key={message.id} className={`message-row ${own ? "own" : ""}`.trim()}>
               <div className="message-bubble">
@@ -66,7 +78,40 @@ export function MessageList({
                     </button>
                   </div>
                 ) : (
-                  <p>{message.text}</p>
+                  <>
+                    {attachment?.kind === "image" ? (
+                      <div className="attachment-card">
+                        <img
+                          className="attachment-image"
+                          src={attachment.dataUrl}
+                          alt={attachment.fileName || "Shared image"}
+                          loading="lazy"
+                        />
+                        <div className="attachment-caption">
+                          <span>{attachment.fileName || "image"}</span>
+                          <a href={attachment.dataUrl} download={attachment.fileName || "image"}>
+                            Download
+                          </a>
+                        </div>
+                      </div>
+                    ) : attachment?.kind === "file" ? (
+                      <div className="attachment-file">
+                        <a
+                          className="attachment-file-link"
+                          href={attachment.dataUrl}
+                          download={attachment.fileName || "file"}
+                        >
+                          {attachment.fileName || "Download file"}
+                        </a>
+                        <span className="attachment-file-meta">
+                          {attachment.mimeType || "File"}
+                          {formatFileSize(attachment.size) ? ` • ${formatFileSize(attachment.size)}` : ""}
+                        </span>
+                      </div>
+                    ) : (
+                      <p>{message.text}</p>
+                    )}
+                  </>
                 )}
 
                 {messageTypeLabel(message.messageType) ? (
@@ -79,7 +124,7 @@ export function MessageList({
                   {own ? <small>{statusLabel(message.status)}</small> : null}
                 </div>
 
-                {own && !message.deleted && editingId !== message.id ? (
+                {canEdit && editingId !== message.id ? (
                   <div className="message-actions">
                     <button
                       className="link-btn"

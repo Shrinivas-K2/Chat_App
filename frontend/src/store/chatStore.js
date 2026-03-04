@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+let notificationCounter = 0;
+
 function sortByTimeDesc(items) {
   return [...items].sort(
     (a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime()
@@ -15,6 +17,16 @@ function upsertById(list, item) {
   const next = [...list];
   next[index] = { ...next[index], ...item };
   return next;
+}
+
+function notificationSignature(item) {
+  return [
+    String(item.type || ""),
+    String(item.roomId || ""),
+    String(item.senderId || ""),
+    String(item.title || ""),
+    String(item.body || ""),
+  ].join("|");
 }
 
 export const useChatStore = create((set, get) => ({
@@ -125,9 +137,45 @@ export const useChatStore = create((set, get) => ({
   },
 
   pushNotification: (notification) => {
-    set((state) => ({
-      notifications: [notification, ...state.notifications].slice(0, 30),
-    }));
+    set((state) => {
+      const now = Date.now();
+      const nextNotification = {
+        ...notification,
+        id: notification?.id || `n_${now}_${notificationCounter++}`,
+        timestamp: notification?.timestamp || new Date(now).toISOString(),
+      };
+      const nextSignature = notificationSignature(nextNotification);
+
+      const duplicateIndex = state.notifications.findIndex((item) => {
+        const sameSignature = notificationSignature(item) === nextSignature;
+        if (!sameSignature) return false;
+
+        const itemTs = new Date(item.timestamp || 0).getTime();
+        if (!Number.isFinite(itemTs)) return false;
+
+        return now - itemTs < 6000;
+      });
+
+      if (duplicateIndex >= 0) {
+        const next = [...state.notifications];
+        const existingId = next[duplicateIndex].id;
+        next[duplicateIndex] = {
+          ...next[duplicateIndex],
+          ...nextNotification,
+          id: existingId,
+        };
+
+        next.sort(
+          (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+        );
+
+        return { notifications: next.slice(0, 30) };
+      }
+
+      return {
+        notifications: [nextNotification, ...state.notifications].slice(0, 30),
+      };
+    });
   },
 
   clearNotificationsByRoom: (roomId) => {

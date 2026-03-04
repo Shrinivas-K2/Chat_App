@@ -64,11 +64,11 @@ export function RequestPanel() {
       }
     };
 
-    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
 
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
@@ -95,7 +95,7 @@ export function RequestPanel() {
   return (
     <div className="notification-wrap" ref={panelRef}>
       <button
-        className={`mini-btn ${open ? "is-open" : ""}`.trim()}
+        className={`mini-btn header-pill request-pill ${open ? "is-open" : ""}`.trim()}
         onClick={() => setOpen((prev) => !prev)}
         type="button"
       >

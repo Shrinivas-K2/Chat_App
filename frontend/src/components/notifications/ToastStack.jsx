@@ -4,7 +4,7 @@ import { useChatStore } from "../../store/chatStore";
 const TOAST_DURATION_MS = 3800;
 
 function toastKey(item, index) {
-  return `${item.timestamp || ""}-${item.title || ""}-${item.body || ""}-${index}`;
+  return String(item.id || `${item.timestamp || ""}-${item.title || ""}-${item.body || ""}-${index}`);
 }
 
 export function ToastStack() {
@@ -34,6 +34,12 @@ export function ToastStack() {
       }, TOAST_DURATION_MS);
     });
   }, [notifications]);
+
+  useEffect(() => {
+    if (notifications.length === 0) {
+      seenRef.current.clear();
+    }
+  }, [notifications.length]);
 
   if (toasts.length === 0) return null;
 

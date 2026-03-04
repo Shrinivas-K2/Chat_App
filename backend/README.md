@@ -8,6 +8,13 @@
 5. `npm install`
 6. `npm run dev`
 
+If your database already exists, run this migration once:
+```sql
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS password_reset_token_hash TEXT,
+ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMP;
+```
+
 ## Environment
 Default `.env.example` is aligned to your provided values:
 - `DB_PORT=5432`
@@ -17,6 +24,7 @@ Default `.env.example` is aligned to your provided values:
 - `GOOGLE_CLIENT_ID=<your-google-web-client-id>`
 - `APP_BASE_URL=<frontend-url-for-email-links>`
 - `EMAIL_VERIFICATION_TTL_MINUTES=1440`
+- `PASSWORD_RESET_TTL_MINUTES=30`
 - `RESEND_API_KEY=<optional-for-real-email-delivery>`
 - `EMAIL_FROM=Chat App <onboarding@yourdomain.com>`
 
@@ -28,11 +36,15 @@ If `DB_HOST=*` is used, backend normalizes it to `localhost`.
 - `POST /api/v1/auth/google`
 - `POST /api/v1/auth/verify-email`
 - `POST /api/v1/auth/resend-verification`
+- `POST /api/v1/auth/forgot-password`
+- `POST /api/v1/auth/reset-password`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/users/search?q=`
 - `GET /api/v1/rooms`
 - `POST /api/v1/rooms/private`
+- `POST /api/v1/rooms/random-connect`
+- `DELETE /api/v1/rooms/random-connect`
 - `POST /api/v1/rooms/group`
 - `DELETE /api/v1/rooms/group/:roomId`
 - `GET /api/v1/messages/room/:roomId`

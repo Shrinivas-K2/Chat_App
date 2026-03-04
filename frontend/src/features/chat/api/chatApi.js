@@ -20,6 +20,16 @@ export async function createPrivateRoomApi(payload) {
   return response.data;
 }
 
+export async function randomConnectApi() {
+  const response = await httpClient.post("/rooms/random-connect");
+  return response.data;
+}
+
+export async function cancelRandomConnectApi() {
+  const response = await httpClient.delete("/rooms/random-connect");
+  return response.data;
+}
+
 export async function hideRoomHistoryApi(roomId) {
   const response = await httpClient.patch(`/rooms/${roomId}/hide`);
   return response.data;

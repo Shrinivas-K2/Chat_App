@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { createAttachmentPayload } from "../../features/messages/utils/attachmentPayload";
 
 const QUICK_EMOJIS = [
   "\u{1F600}",
@@ -11,50 +12,81 @@ const QUICK_EMOJIS = [
   "\u{2764}\u{FE0F}",
 ];
 
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Unable to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function MessageComposer({ onSend, onTyping }) {
   const [text, setText] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [attachmentError, setAttachmentError] = useState("");
   const imageInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const canSend = useMemo(() => text.trim().length > 0, [text]);
+  const canSend = useMemo(() => text.trim().length > 0 && !isUploading, [text, isUploading]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!canSend) return;
-    onSend({ text: text.trim(), messageType: "TEXT" });
+    const nextText = text.trim();
+    setAttachmentError("");
+    await Promise.resolve(onSend({ text: nextText, messageType: "TEXT" }));
     setText("");
     onTyping(false);
   };
 
-  const handleImagePick = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const sendAttachment = async (file, kind) => {
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setAttachmentError("File is too large. Max allowed size is 5 MB.");
+      return;
+    }
 
-    onSend({
-      text: `Image: ${file.name}`,
-      messageType: "IMAGE",
-    });
-    event.target.value = "";
-    onTyping(false);
+    setAttachmentError("");
+    setIsUploading(true);
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const messageType = kind === "image" ? "IMAGE" : "FILE";
+      const payloadText = createAttachmentPayload({
+        kind,
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        dataUrl,
+      });
+
+      await Promise.resolve(
+        onSend({
+          text: payloadText,
+          messageType,
+        })
+      );
+      onTyping(false);
+    } catch {
+      setAttachmentError("Unable to process this file. Please try another file.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const handleFilePick = (event) => {
+  const handleImagePick = async (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-
-    onSend({
-      text: `File: ${file.name}`,
-      messageType: "FILE",
-    });
     event.target.value = "";
-    onTyping(false);
+    if (!file) return;
+    await sendAttachment(file, "image");
   };
 
-  const handleVoicePlaceholder = () => {
-    onSend({
-      text: "Voice message",
-      messageType: "VOICE",
-    });
-    onTyping(false);
+  const handleFilePick = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    await sendAttachment(file, "file");
   };
 
   const handleTextKeyDown = (event) => {
@@ -71,12 +103,16 @@ export function MessageComposer({ onSend, onTyping }) {
 
   return (
     <div className="composer">
+      {attachmentError ? <p className="error-text">{attachmentError}</p> : null}
+      {isUploading ? <p className="info-text">Uploading attachment...</p> : null}
+
       <div className="media-row">
         <button
           className="media-btn"
           onClick={() => imageInputRef.current?.click()}
           type="button"
           title="Send image"
+          disabled={isUploading}
         >
           {"\u{1F4F7}"}
         </button>
@@ -85,18 +121,10 @@ export function MessageComposer({ onSend, onTyping }) {
           onClick={() => fileInputRef.current?.click()}
           type="button"
           title="Send file"
+          disabled={isUploading}
         >
           {"\u{1F4CE}"}
         </button>
-        <button
-          className="media-btn"
-          onClick={handleVoicePlaceholder}
-          type="button"
-          title="Send voice note"
-        >
-          {"\u{1F3A4}"}
-        </button>
-
         <input
           ref={imageInputRef}
           type="file"

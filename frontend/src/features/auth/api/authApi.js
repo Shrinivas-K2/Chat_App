@@ -30,6 +30,16 @@ export async function resendVerificationApi(payload) {
   return response.data;
 }
 
+export async function requestPasswordResetApi(payload) {
+  const response = await httpClient.post("/auth/forgot-password", payload);
+  return response.data;
+}
+
+export async function resetPasswordApi(payload) {
+  const response = await httpClient.post("/auth/reset-password", payload);
+  return response.data;
+}
+
 export async function meApi() {
   const response = await httpClient.get("/auth/me");
   return response.data;

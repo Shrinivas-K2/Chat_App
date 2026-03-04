@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { BrandLogo } from "../../../components/common/BrandLogo";
 
 const FEATURE_POINTS = [
   "Discover and connect with random users instantly.",
@@ -59,7 +60,7 @@ export function LandingPage() {
 
       <header className="landing-nav">
         <Link to="/" className="landing-brand">
-          Chat App
+          <BrandLogo size="md" text="Chat App" />
         </Link>
 
         <nav className="landing-nav-links" aria-label="Main navigation">
@@ -166,7 +167,9 @@ export function LandingPage() {
 
       <footer className="landing-footer landing-footer-clean" id="contact">
         <div className="landing-footer-brand">
-          <h3>Chat App</h3>
+          <h3>
+            <BrandLogo size="sm" text="Chat App" />
+          </h3>
           <p>Secure private chats, open communities, and real-time conversations at scale.</p>
         </div>
 

@@ -36,6 +36,7 @@ export function ConnectedUsersSidebar({
   onDeleteHistory,
   onOpenGroup,
   onJoinGroup,
+  onCreateGroup,
   hiddenHistoryIds = [],
   unreadByRoom = {},
   loading,
@@ -192,7 +193,12 @@ export function ConnectedUsersSidebar({
         </>
       ) : (
         <>
-          <div className="chat-sidebar-title">Active Groups</div>
+          <div className="group-section-head">
+            <div className="chat-sidebar-title">Active Groups</div>
+            <button className="mini-btn group-create-btn" onClick={onCreateGroup} type="button">
+              + Create
+            </button>
+          </div>
           {groupsLoading ? <p className="sidebar-note">Loading groups...</p> : null}
 
           {activeGroup ? (

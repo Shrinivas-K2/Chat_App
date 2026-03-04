@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "../../../components/common/Button";
 import { InputField } from "../../../components/common/InputField";
 import { Loader } from "../../../components/common/Loader";
@@ -55,6 +56,12 @@ export function AuthForm({ type = "login", onSubmit, onGoogleAuth, isSubmitting,
         placeholder="Minimum 8 characters"
         required
       />
+
+      {!isSignup ? (
+        <p className="auth-helper-row">
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
+      ) : null}
 
       {error ? <p className="error-text">{error}</p> : null}
 

@@ -48,13 +48,26 @@ export function NotificationPanel() {
     return Array.from(groups.values());
   }, [notifications]);
 
-  const nonMessageNotifications = useMemo(
-    () =>
-      notifications.filter(
-        (item) => !(item.type === "message" || /^New message from/i.test(String(item.title || "")))
-      ),
-    [notifications]
-  );
+  const nonMessageNotifications = useMemo(() => {
+    const map = new Map();
+
+    notifications
+      .filter((item) => !(item.type === "message" || /^New message from/i.test(String(item.title || ""))))
+      .forEach((item) => {
+        const key = [
+          String(item.type || ""),
+          String(item.roomId || ""),
+          String(item.title || ""),
+          String(item.body || ""),
+        ].join("|");
+
+        if (!map.has(key)) {
+          map.set(key, item);
+        }
+      });
+
+    return Array.from(map.values());
+  }, [notifications]);
 
   const totalCount =
     groupedMessageNotifications.reduce((sum, item) => sum + item.count, 0) +
@@ -79,11 +92,11 @@ export function NotificationPanel() {
       }
     };
 
-    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
 
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
@@ -112,7 +125,7 @@ export function NotificationPanel() {
   return (
     <div className="notification-wrap" ref={panelRef}>
       <button
-        className={`mini-btn ${open ? "is-open" : ""}`.trim()}
+        className={`mini-btn header-pill alert-pill ${open ? "is-open" : ""}`.trim()}
         onClick={() => setOpen((prev) => !prev)}
         type="button"
       >

@@ -6,12 +6,19 @@ const {
   GOOGLE_CLIENT_ID,
   APP_BASE_URL,
   EMAIL_VERIFICATION_TTL_MINUTES,
+  PASSWORD_RESET_TTL_MINUTES,
 } = require("../../config/env");
-const { sendEmailVerificationEmail } = require("../../services/email/emailService");
+const {
+  sendEmailVerificationEmail,
+  sendPasswordResetEmail,
+} = require("../../services/email/emailService");
 
 const GOOGLE_TOKEN_INFO_URL = "https://oauth2.googleapis.com/tokeninfo?id_token=";
 const GOOGLE_ISSUERS = new Set(["accounts.google.com", "https://accounts.google.com"]);
 const MIN_EMAIL_VERIFICATION_MINUTES = 5;
+const MIN_PASSWORD_RESET_MINUTES = 5;
+const PASSWORD_RESET_GENERIC_MESSAGE =
+  "If an account with that email exists, a password reset link has been sent.";
 
 function sanitizeUser(user) {
   return {
@@ -50,6 +57,15 @@ function createEmailVerificationToken() {
   return { token, tokenHash, expiresAt };
 }
 
+function createPasswordResetToken() {
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const ttlMinutes = Math.max(MIN_PASSWORD_RESET_MINUTES, Number(PASSWORD_RESET_TTL_MINUTES) || 0);
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+  return { token, tokenHash, expiresAt };
+}
+
 function buildEmailVerificationUrl(token) {
   const safeBaseUrl = String(APP_BASE_URL || "").trim();
 
@@ -66,12 +82,37 @@ function buildEmailVerificationUrl(token) {
   }
 }
 
+function buildPasswordResetUrl(token) {
+  const safeBaseUrl = String(APP_BASE_URL || "").trim();
+
+  if (!safeBaseUrl) {
+    return `/reset-password?token=${encodeURIComponent(token)}`;
+  }
+
+  try {
+    const url = new URL("/reset-password", safeBaseUrl.endsWith("/") ? safeBaseUrl : `${safeBaseUrl}/`);
+    url.searchParams.set("token", token);
+    return url.toString();
+  } catch (error) {
+    return `${safeBaseUrl.replace(/\/+$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
+  }
+}
+
 async function sendVerificationEmailToUser({ email, username, token }) {
   const verificationUrl = buildEmailVerificationUrl(token);
   return sendEmailVerificationEmail({
     to: email,
     username,
     verificationUrl,
+  });
+}
+
+async function sendPasswordResetEmailToUser({ email, username, token }) {
+  const resetUrl = buildPasswordResetUrl(token);
+  return sendPasswordResetEmail({
+    to: email,
+    username,
+    resetUrl,
   });
 }
 
@@ -617,6 +658,125 @@ async function resendVerification(req, res) {
   });
 }
 
+async function forgotPassword(req, res) {
+  const normalizedEmail = normalizeEmail(req.body.email);
+
+  if (!normalizedEmail) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  const userResult = await query(
+    `
+    SELECT user_id, username, email
+    FROM users
+    WHERE email = $1
+    LIMIT 1
+    `,
+    [normalizedEmail]
+  );
+
+  if (userResult.rowCount === 0) {
+    return res.json({ success: true, message: PASSWORD_RESET_GENERIC_MESSAGE });
+  }
+
+  const user = userResult.rows[0];
+  const resetToken = createPasswordResetToken();
+
+  await query(
+    `
+    UPDATE users
+    SET password_reset_token_hash = $2,
+        password_reset_expires_at = $3,
+        updated_at = NOW()
+    WHERE user_id = $1
+    `,
+    [user.user_id, resetToken.tokenHash, resetToken.expiresAt]
+  );
+
+  try {
+    await sendPasswordResetEmailToUser({
+      email: user.email,
+      username: user.username,
+      token: resetToken.token,
+    });
+  } catch (error) {
+    console.error("Failed to send password reset email", error);
+  }
+
+  return res.json({ success: true, message: PASSWORD_RESET_GENERIC_MESSAGE });
+}
+
+async function resetPassword(req, res) {
+  const token = String(req.body.token || "").trim();
+  const password = String(req.body.password || "");
+
+  if (!token || !validatePassword(password)) {
+    return res.status(400).json({ message: "A valid token and password (min 6 chars) are required" });
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const userResult = await query(
+    `
+    SELECT user_id, password_reset_expires_at
+    FROM users
+    WHERE password_reset_token_hash = $1
+    LIMIT 1
+    `,
+    [tokenHash]
+  );
+
+  if (userResult.rowCount === 0) {
+    return res.status(400).json({ message: "Invalid password reset token" });
+  }
+
+  const user = userResult.rows[0];
+  const expiresAt = user.password_reset_expires_at ? new Date(user.password_reset_expires_at).getTime() : 0;
+
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    return res.status(410).json({ message: "Password reset token has expired. Please request a new link." });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `
+      UPDATE users
+      SET password_hash = $2,
+          password_reset_token_hash = NULL,
+          password_reset_expires_at = NULL,
+          updated_at = NOW()
+      WHERE user_id = $1
+      `,
+      [user.user_id, passwordHash]
+    );
+
+    await client.query(
+      `
+      UPDATE user_sessions
+      SET is_valid = FALSE
+      WHERE user_id = $1
+      `,
+      [user.user_id]
+    );
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return res.json({
+    success: true,
+    message: "Password reset successful. Please login with your new password.",
+  });
+}
+
 async function me(req, res) {
   return res.json({ user: sanitizeUser(req.user) });
 }
@@ -643,4 +803,14 @@ async function logout(req, res) {
   return res.json({ success: true });
 }
 
-module.exports = { signup, login, googleAuth, verifyEmail, resendVerification, me, logout };
+module.exports = {
+  signup,
+  login,
+  googleAuth,
+  verifyEmail,
+  resendVerification,
+  forgotPassword,
+  resetPassword,
+  me,
+  logout,
+};

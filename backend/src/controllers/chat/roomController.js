@@ -2,6 +2,7 @@ const { pool, query } = require("../../config/db");
 const { getIO } = require("../../services/socket/socketState");
 
 let roomMemberColumnsReady = false;
+let randomMatchQueueReady = false;
 
 async function ensureRoomMemberColumns() {
   if (roomMemberColumnsReady) return;
@@ -13,6 +14,19 @@ async function ensureRoomMemberColumns() {
     `
   );
   roomMemberColumnsReady = true;
+}
+
+async function ensureRandomMatchQueueTable() {
+  if (randomMatchQueueReady) return;
+  await query(
+    `
+    CREATE TABLE IF NOT EXISTS random_match_queue (
+      user_id UUID PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+    `
+  );
+  randomMatchQueueReady = true;
 }
 
 function toChatSummary(row, currentUserId) {
@@ -65,6 +79,26 @@ function notifyUser(userId, payload) {
   const io = getIO();
   if (!io) return;
   io.to(`user:${userId}`).emit("notification:new", payload);
+}
+
+async function findPrivateRoomBetweenUsers(userIdA, userIdB, runner = query) {
+  return runner(
+    `
+    SELECT
+      r.room_id,
+      MAX(CASE WHEN rm.user_id = $1 THEN rm.status END) AS user_a_status,
+      MAX(CASE WHEN rm.user_id = $2 THEN rm.status END) AS user_b_status
+    FROM rooms r
+    JOIN room_members rm ON rm.room_id = r.room_id
+    WHERE r.room_type = 'PRIVATE'
+      AND r.is_active = TRUE
+      AND rm.user_id IN ($1, $2)
+    GROUP BY r.room_id
+    HAVING COUNT(DISTINCT rm.user_id) = 2
+    LIMIT 1
+    `,
+    [userIdA, userIdB]
+  );
 }
 
 async function getRoomSummaryForUser(roomId, userId, runner = query) {
@@ -241,23 +275,7 @@ async function createPrivateRoom(req, res) {
     return res.status(404).json({ message: "Target user not found" });
   }
 
-  const existing = await query(
-    `
-    SELECT
-      r.room_id,
-      MAX(CASE WHEN rm.user_id = $1 THEN rm.status END) AS requester_status,
-      MAX(CASE WHEN rm.user_id = $2 THEN rm.status END) AS target_status
-    FROM rooms r
-    JOIN room_members rm ON rm.room_id = r.room_id
-    WHERE r.room_type = 'PRIVATE'
-      AND r.is_active = TRUE
-      AND rm.user_id IN ($1, $2)
-    GROUP BY r.room_id
-    HAVING COUNT(DISTINCT rm.user_id) = 2
-    LIMIT 1
-    `,
-    [req.user.user_id, targetUserId]
-  );
+  const existing = await findPrivateRoomBetweenUsers(req.user.user_id, targetUserId);
 
   if (existing.rowCount > 0) {
     const existingRoom = existing.rows[0];
@@ -355,6 +373,168 @@ async function createPrivateRoom(req, res) {
   } finally {
     client.release();
   }
+}
+
+async function randomConnect(req, res) {
+  await ensureRoomMemberColumns();
+  await ensureRandomMatchQueueTable();
+
+  const currentUserId = req.user.user_id;
+  const client = await pool.connect();
+  let roomId = null;
+  let matchedUserId = null;
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `
+      DELETE FROM random_match_queue
+      WHERE created_at < NOW() - INTERVAL '15 minutes'
+      `
+    );
+
+    const candidateResult = await client.query(
+      `
+      SELECT q.user_id
+      FROM random_match_queue q
+      JOIN users u ON u.user_id = q.user_id
+      WHERE q.user_id <> $1
+        AND u.is_online = TRUE
+        AND q.created_at >= NOW() - INTERVAL '15 minutes'
+      ORDER BY q.created_at ASC
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+      `,
+      [currentUserId]
+    );
+
+    if (candidateResult.rowCount === 0) {
+      await client.query(
+        `
+        INSERT INTO random_match_queue (user_id, created_at)
+        VALUES ($1, NOW())
+        ON CONFLICT (user_id)
+        DO UPDATE SET created_at = EXCLUDED.created_at
+        `,
+        [currentUserId]
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(202).json({
+        matched: false,
+        waiting: true,
+        message: "Waiting for another user to connect randomly.",
+      });
+    }
+
+    matchedUserId = candidateResult.rows[0].user_id;
+
+    await client.query(`DELETE FROM random_match_queue WHERE user_id IN ($1, $2)`, [
+      currentUserId,
+      matchedUserId,
+    ]);
+
+    const existingRoom = await findPrivateRoomBetweenUsers(
+      currentUserId,
+      matchedUserId,
+      client.query.bind(client)
+    );
+
+    if (existingRoom.rowCount > 0) {
+      roomId = existingRoom.rows[0].room_id;
+
+      await client.query(
+        `
+        UPDATE room_members
+        SET status = 'APPROVED',
+            hidden_at = NULL,
+            joined_at = NOW()
+        WHERE room_id = $1
+          AND user_id IN ($2, $3)
+        `,
+        [roomId, currentUserId, matchedUserId]
+      );
+    } else {
+      const roomResult = await client.query(
+        `
+        INSERT INTO rooms (room_type, created_by)
+        VALUES ('PRIVATE', $1)
+        RETURNING room_id
+        `,
+        [currentUserId]
+      );
+
+      roomId = roomResult.rows[0].room_id;
+
+      await client.query(
+        `
+        INSERT INTO room_members (room_id, user_id, role, status)
+        VALUES
+          ($1, $2, 'ADMIN', 'APPROVED'),
+          ($1, $3, 'MEMBER', 'APPROVED')
+        `,
+        [roomId, currentUserId, matchedUserId]
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  const currentUserRoom = await getRoomSummaryForUser(roomId, currentUserId);
+  const matchedUserRoom = await getRoomSummaryForUser(roomId, matchedUserId);
+  const io = getIO();
+
+  if (io && matchedUserRoom) {
+    io.to(`user:${matchedUserId}`).emit("room:available", {
+      room: matchedUserRoom,
+      reason: "random_match",
+    });
+  }
+
+  notifyUser(currentUserId, {
+    title: "Random match connected",
+    body: "You are now connected with a random user.",
+    roomId,
+    type: "random_match",
+    timestamp: new Date().toISOString(),
+  });
+
+  if (matchedUserId) {
+    notifyUser(matchedUserId, {
+      title: "Random match connected",
+      body: "You are now connected with a random user.",
+      roomId,
+      type: "random_match",
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  return res.json({
+    matched: true,
+    waiting: false,
+    room: currentUserRoom,
+  });
+}
+
+async function cancelRandomConnect(req, res) {
+  await ensureRandomMatchQueueTable();
+
+  await query(
+    `
+    DELETE FROM random_match_queue
+    WHERE user_id = $1
+    `,
+    [req.user.user_id]
+  );
+
+  return res.json({ success: true, waiting: false });
 }
 
 async function listPrivateRequests(req, res) {
@@ -787,5 +967,7 @@ module.exports = {
   respondGroupJoinRequest,
   deleteGroupRoom,
   hideRoomHistory,
+  randomConnect,
+  cancelRandomConnect,
   getRoomSummaryForUser,
 };

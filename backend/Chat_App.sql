@@ -14,6 +14,8 @@ CREATE TABLE users (
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     email_verification_token_hash TEXT,
     email_verification_expires_at TIMESTAMP,
+    password_reset_token_hash TEXT,
+    password_reset_expires_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -107,6 +109,13 @@ CREATE TABLE user_sessions (
 );
 
 CREATE INDEX idx_sessions_user ON user_sessions(user_id);
+
+CREATE TABLE random_match_queue (
+    user_id UUID PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_random_match_queue_created_at ON random_match_queue(created_at);
 
 ALTER TABLE messages
 ADD COLUMN search_vector tsvector;

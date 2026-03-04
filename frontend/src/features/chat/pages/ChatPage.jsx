@@ -8,11 +8,13 @@ import { useChatStore } from "../../../store/chatStore";
 import { useAuthStore } from "../../../store/authStore";
 import { useSocket } from "../../../hooks/useSocket";
 import {
+  cancelRandomConnectApi,
   createGroupRoomApi,
   createPrivateRoomApi,
   getPublicGroupsApi,
   getRoomsApi,
   hideRoomHistoryApi,
+  randomConnectApi,
   requestJoinGroupApi,
 } from "../api/chatApi";
 import {
@@ -38,6 +40,8 @@ export function ChatPage() {
   const [hiddenHistoryIds, setHiddenHistoryIds] = useState([]);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false);
+  const [isRandomConnecting, setIsRandomConnecting] = useState(false);
+  const [isRandomWaiting, setIsRandomWaiting] = useState(false);
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [groupDialogError, setGroupDialogError] = useState("");
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -218,6 +222,14 @@ export function ChatPage() {
     }, {});
   }, [notifications]);
 
+  useEffect(() => {
+    if (!isRandomWaiting) return;
+    const matchedFromNotification = notifications.some((item) => item.type === "random_match");
+    if (matchedFromNotification) {
+      setIsRandomWaiting(false);
+    }
+  }, [notifications, isRandomWaiting]);
+
   const handleSend = async (input) => {
     if (!activeChat) return;
 
@@ -293,6 +305,40 @@ export function ChatPage() {
     setGroupNameDraft("");
     setGroupDialogError("");
     setIsCreateGroupDialogOpen(true);
+  };
+
+  const handleRandomConnect = async () => {
+    setError("");
+
+    try {
+      setIsRandomConnecting(true);
+
+      if (isRandomWaiting) {
+        await cancelRandomConnectApi();
+        setIsRandomWaiting(false);
+        setInfo("Random connection search cancelled.");
+        return;
+      }
+
+      const data = await randomConnectApi();
+
+      if (data?.matched && data.room) {
+        upsertChat(data.room);
+        setActiveChat(data.room.id);
+        setIsRandomWaiting(false);
+        setInfo("Connected with a random user. Start chatting.");
+        return;
+      }
+
+      if (data?.waiting) {
+        setIsRandomWaiting(true);
+        setInfo(data?.message || "Waiting for someone to join random chat.");
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Unable to connect randomly right now."));
+    } finally {
+      setIsRandomConnecting(false);
+    }
   };
 
   const submitCreateGroup = async () => {
@@ -413,8 +459,12 @@ export function ChatPage() {
   };
 
   const headerAction = (
-    <button className="btn btn-primary btn-top-create-group" onClick={handleCreateGroup}>
-      + Create Group
+    <button
+      className={`btn btn-primary btn-top-random ${isRandomWaiting ? "is-waiting" : ""}`.trim()}
+      onClick={handleRandomConnect}
+      disabled={isRandomConnecting}
+    >
+      {isRandomConnecting ? "Connecting..." : isRandomWaiting ? "Cancel Random" : "Connect Random"}
     </button>
   );
 
@@ -431,6 +481,7 @@ export function ChatPage() {
           onDeleteHistory={handleDeleteHistory}
           onOpenGroup={handleOpenGroup}
           onJoinGroup={handleJoinGroup}
+          onCreateGroup={handleCreateGroup}
           hiddenHistoryIds={hiddenHistoryIds}
           unreadByRoom={unreadByRoom}
           loading={isLoadingUsers || isLoadingRooms}

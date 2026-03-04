@@ -2,6 +2,31 @@ const { pool, query } = require("../../config/db");
 const { getIO } = require("../../services/socket/socketState");
 
 let roomMemberColumnsReady = false;
+const ATTACHMENT_PREFIX = "__CHAT_APP_ATTACHMENT__:";
+
+function buildNotificationBody({ text, messageType }) {
+  const normalizedType = String(messageType || "TEXT").toUpperCase();
+
+  if (normalizedType === "IMAGE") {
+    return "Sent an image";
+  }
+
+  if (normalizedType === "FILE") {
+    return "Sent a file";
+  }
+
+  if (normalizedType === "VOICE") {
+    return "Sent a voice message";
+  }
+
+  const safeText = String(text || "").trim();
+
+  if (safeText.startsWith(ATTACHMENT_PREFIX)) {
+    return "Sent an attachment";
+  }
+
+  return safeText.slice(0, 80);
+}
 
 async function ensureRoomMemberColumns() {
   if (roomMemberColumnsReady) return;
@@ -186,7 +211,7 @@ async function sendMessage(req, res) {
           senderId: req.user.user_id,
           senderName: req.user.username,
           title: `New message from ${req.user.username}`,
-          body: text.trim().slice(0, 80),
+          body: buildNotificationBody({ text, messageType: type }),
           roomId,
           timestamp: new Date().toISOString(),
         });
